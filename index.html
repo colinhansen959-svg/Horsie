@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Horsies are AWESOME!</title>
+    <title>Three.js Rigged Low Poly Horse</title>
     <style>
         body {
             margin: 0;
@@ -1758,8 +1758,8 @@
                 }
             }
 
-            // Detect keyboard input to trigger player override
-            if (keys.w || keys.a || keys.s || keys.d || keys.space) {
+            // Detect keyboard input to trigger player override (ONLY in the jumping course)
+            if (currentLocation === 'course' && (keys.w || keys.a || keys.s || keys.d || keys.space)) {
                 isPlayerMode = true;
                 playerIdleTime = 0;
             }

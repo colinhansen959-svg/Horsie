@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Three.js Rigged Low Poly Horse</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #87ceeb; /* Sky blue background */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Prevents default browser scrolling on mobile */
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Mobile UI Controls */
+        #mobile-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        #joystick-zone {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+            display: none;
+        }
+        
+        #joystick-knob {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
+
+        #jump-btn {
+            display: none; 
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            width: 90px;
+            height: 90px;
+            background: rgba(255, 140, 0, 0.8);
+            border: 3px solid rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            pointer-events: auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: transform 0.1s;
+        }
+
+        #jump-btn:active {
+            background: rgba(255, 100, 0, 0.9);
+            transform: scale(0.92);
+        }
+
+        /* --- Pause Screen UI --- */
+        #pause-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            backdrop-filter: blur(4px);
+            transition: transform 0.1s;
+        }
+
+        #pause-btn:active {
+            transform: scale(0.92);
+        }
+
+        #pause-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(6px);
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            pointer-events: auto;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+        }
+
+        #pause-screen.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #pause-screen h1 {
+            font-size: 3rem;
+            margin-bottom: 2rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            letter-spacing: 2px;
+        }
+
+        .menu-btn {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: #8b5a2b;
+            color: white;
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            transition: transform 0.1s, background 0.2s;
+            margin-bottom: 15px;
+        }
+
+        .menu-btn:active {
+            transform: scale(0.95);
+            background: #a06b35;
+        }
+
+        /* --- NEW: Shop UI --- */
+        #shop-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 40;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            color: white;
+            pointer-events: auto;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            padding-top: 5vh;
+            box-sizing: border-box;
+        }
+
+        #shop-screen.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #shop-screen h1 {
+            font-size: 3rem;
+            margin: 0 0 10px 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            color: #ffd700;
+        }
+
+        .shop-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            overflow-y: auto;
+            max-height: 60vh;
+            width: 90%;
+            max-width: 800px;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .shop-item {
+            background: rgba(0,0,0,0.5);
+            border: 2px solid rgba(255,255,255,0.3);
+            padding: 15px;
+            border-radius: 10px;
+            width: 180px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .shop-item h3 { margin: 0 0 10px 0; font-size: 1.2rem; }
+        .shop-item p { margin: 0 0 15px 0; font-size: 1.1rem; color: #ffd700; font-weight: bold; }
+        
+        .buy-btn {
+            background: #28a745;
+            border: 2px solid white;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1rem;
+            transition: 0.1s transform;
+        }
+
+        .buy-btn:active { transform: scale(0.95); }
+        .buy-btn:disabled { background: #666; color: #aaa; cursor: not-allowed; border-color: #888; }
+
+        /* --- Mini-Game HUD UI --- */
+        #minigame-hud {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px 30px;
+            border-radius: 15px;
+            color: white;
+            text-align: center;
+            font-weight: bold;
+            z-index: 10;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+            border: 2px solid rgba(255,255,255,0.3);
+            display: none; 
+        }
+        
+        #score-display {
+            font-size: 28px;
+            transition: color 0.3s, transform 0.1s;
+        }
+
+        #time-display {
+            font-size: 20px;
+            margin-top: 5px;
+            color: #ddd;
+        }
+
+        #start-game-btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            background: #ff8c00;
+            color: white;
+            border: 2px solid white;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        #start-game-btn:active {
+            transform: scale(0.95);
+        }
+
+        .score-bump {
+            color: #00ff00 !important;
+            transform: scale(1.2);
+        }
+    </style>
+    <!-- Import Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="mobile-ui">
+        <div id="joystick-zone" style="display: none;">
+            <div id="joystick-knob"></div>
+        </div>
+        <!-- Jump button starts hidden via inline style -->
+        <div id="jump-btn" style="display: none;">JUMP</div>
+        <!-- Pause Button in top right -->
+        <div id="pause-btn">⏸</div>
+    </div>
+
+    <!-- Pause Menu Overlay -->
+    <div id="pause-screen">
+        <h1>PAUSED</h1>
+        <div id="money-display" style="font-size: 2.5rem; margin-bottom: 30px; color: #ffd700; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">Money: $0</div>
+        <button id="resume-btn" class="menu-btn">Resume</button>
+        <button id="switch-scene-btn" class="menu-btn">Go to Jumping Course</button>
+        <button id="open-shop-btn" class="menu-btn" style="background: #28a745;">Open Shop</button>
+    </div>
+
+    <!-- Shop Overlay -->
+    <div id="shop-screen">
+        <h1>FARM SHOP</h1>
+        <div id="shop-money-display" style="font-size: 1.8rem; margin-bottom: 20px; color: #ffd700; font-weight: bold;">Balance: $0</div>
+        
+        <div class="shop-grid" id="shop-grid">
+            <!-- Items injected by JS -->
+        </div>
+
+        <button id="close-shop-btn" class="menu-btn" style="margin-top: 20px;">Back to Menu</button>
+    </div>
+
+    <!-- Mini Game HUD -->
+    <div id="minigame-hud">
+        <div id="score-display">Score: 0</div>
+        <div id="time-display">Time: 60s</div>
+        <button id="start-game-btn">Start Mini-Game</button>
+    </div>
+
+    <script>
+        // Global Error Catcher
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            const errDiv = document.createElement('div');
+            errDiv.style.position = 'absolute';
+            errDiv.style.top = '10%';
+            errDiv.style.left = '10%';
+            errDiv.style.width = '80%';
+            errDiv.style.padding = '20px';
+            errDiv.style.background = 'rgba(255,0,0,0.8)';
+            errDiv.style.color = 'white';
+            errDiv.style.zIndex = '9999';
+            errDiv.style.fontFamily = 'monospace';
+            errDiv.innerHTML = '<b>Runtime Error:</b><br>' + msg + '<br>Line: ' + lineNo;
+            document.body.appendChild(errDiv);
+            return false;
+        };
+
+        // Global Materials for Shop Upgrades
+        const matBarnWall = new THREE.MeshStandardMaterial({ color: 0x8b0000, flatShading: true, roughness: 0.9, side: THREE.DoubleSide });
+        const matSiloBody = new THREE.MeshStandardMaterial({ color: 0xb0c4de, flatShading: true, roughness: 0.6 });
+        const matJumpPole = new THREE.MeshStandardMaterial({ color: 0xdddddd, flatShading: true });
+
+        // Day/Night Atmospheric Color Palette
+        const colorDaySky = new THREE.Color(0x87ceeb);
+        const colorSunsetSky = new THREE.Color(0xff7e47);
+        const colorNightSky = new THREE.Color(0x050a14);
+
+        const colorSunLight = new THREE.Color(0xffffff);
+        const colorSunsetLight = new THREE.Color(0xff8c00);
+        const colorMoonLight = new THREE.Color(0x7788aa);
+
+        const colorDayAmbient = new THREE.Color(0xffffff);
+        const colorSunsetAmbient = new THREE.Color(0x886655);
+        const colorNightAmbient = new THREE.Color(0x112244);
+
+        // --- CORE HORSE FACTORY ---
+        // Generates isolated geometry specific to each horse's colors
+        function createHorseGeometry(hexBody, hexDark, hexWhite) {
+            const positions = [];
+            const normals = [];
+            const colors = [];
+            const skinIndices = [];
+            const skinWeights = [];
+            
+            const COLOR_BODY = new THREE.Color(hexBody);
+            const COLOR_DARK = new THREE.Color(hexDark);
+            const COLOR_WHITE = new THREE.Color(hexWhite);
+            const COLOR_EYE = new THREE.Color(0x111111);
+
+            function addTriangle(p1, p2, p3, color, boneIndex) {
+                const cb = new THREE.Vector3().subVectors(p3, p2);
+                const ab = new THREE.Vector3().subVectors(p1, p2);
+                cb.cross(ab).normalize();
+
+                [p1, p2, p3].forEach(p => {
+                    positions.push(p.x, p.y, p.z);
+                    normals.push(cb.x, cb.y, cb.z);
+                    colors.push(color.r, color.g, color.b);
+                    skinIndices.push(boneIndex, 0, 0, 0);
+                    skinWeights.push(1, 0, 0, 0);
+                });
+            }
+
+            function addBlock(w, h, d, x, y, z, rx, ry, rz, color, boneIndex, modifier = null) {
+                const pts = [
+                    new THREE.Vector3(-w/2, -h/2, -d/2), new THREE.Vector3( w/2, -h/2, -d/2),
+                    new THREE.Vector3( w/2,  h/2, -d/2), new THREE.Vector3(-w/2,  h/2, -d/2),
+                    new THREE.Vector3(-w/2, -h/2,  d/2), new THREE.Vector3( w/2, -h/2,  d/2),
+                    new THREE.Vector3( w/2,  h/2,  d/2), new THREE.Vector3(-w/2,  h/2,  d/2),
+                ];
+                if (modifier) pts.forEach(p => modifier(p));
+
+                const matrix = new THREE.Matrix4();
+                matrix.makeRotationFromEuler(new THREE.Euler(rx, ry, rz));
+                matrix.setPosition(x, y, z);
+                pts.forEach(p => p.applyMatrix4(matrix));
+
+                const addQuad = (i0, i1, i2, i3) => {
+                    addTriangle(pts[i0], pts[i1], pts[i2], color, boneIndex);
+                    addTriangle(pts[i0], pts[i2], pts[i3], color, boneIndex);
+                };
+                addQuad(1, 0, 3, 2); addQuad(4, 5, 6, 7);
+                addQuad(3, 7, 6, 2); addQuad(0, 1, 5, 4);
+                addQuad(5, 1, 2, 6); addQuad(0, 4, 7, 3);
+            }
+
+            const taperTop = (a) => (p) => { if(p.y > 0) { p.x *= a; p.z *= a; } };
+            const taperBot = (a) => (p) => { if(p.y < 0) { p.x *= a; p.z *= a; } };
+            const taperFront = (a) => (p) => { if(p.x > 0) { p.y *= a; p.z *= a; } };
+
+            addBlock(0.8, 0.8, 0.65,  0, 0, 0,  0, 0, 0, COLOR_BODY, 1);
+            addBlock(0.5, 0.75, 0.6,  0.6, 0, 0,  0, 0, -0.05, COLOR_BODY, 2, (p)=>{ if(p.x>0){p.y*=0.9; p.z*=0.75;} });
+            addBlock(0.5, 0.75, 0.6, -0.6, 0, 0,  0, 0, 0.05, COLOR_BODY, 3, (p)=>{ if(p.x<0){p.y*=0.9; p.z*=0.8;} });
+
+            addBlock(0.5, 0.9, 0.35, 0.7, 0.6, 0, 0, 0, -0.5, COLOR_BODY, 4, taperTop(0.6));
+            addBlock(0.6, 0.4, 0.35, 1.15, 0.95, 0, 0, 0, -0.15, COLOR_BODY, 5, taperFront(0.7));
+            addBlock(0.3, 0.3, 0.25, 1.55, 0.85, 0, 0, 0, -0.2, COLOR_WHITE, 5, taperFront(0.7));
+
+            addBlock(0.15, 0.4, 0.15, 0.95, 1.15, 0, 0, 0, -0.4, COLOR_DARK, 5, taperTop(0.5));
+            addBlock(0.2, 0.5, 0.15, 0.75, 0.95, 0, 0, 0, -0.5, COLOR_DARK, 4, taperTop(0.5));
+            addBlock(0.25, 0.5, 0.15, 0.55, 0.7, 0, 0, 0, -0.6, COLOR_DARK, 4, taperTop(0.5));
+
+            addBlock(0.2, 0.5, 0.2, -0.85, 0.0, 0, 0, 0, 0.3, COLOR_DARK, 14, taperBot(0.7));
+            addBlock(0.15, 0.5, 0.15, -1.0, -0.4, 0, 0, 0, 0.1, COLOR_DARK, 15, taperBot(0.2));
+
+            addBlock(0.1, 0.25, 0.1, 0.95, 1.25, 0.15, -0.1, 0.2, -0.2, COLOR_BODY, 5, taperTop(0.1));
+            addBlock(0.1, 0.25, 0.1, 0.95, 1.25, -0.15, 0.1, -0.2, -0.2, COLOR_BODY, 5, taperTop(0.1));
+
+            addBlock(0.05, 0.05, 0.05, 1.3, 1.05, 0.18, 0, 0, 0, COLOR_EYE, 5);
+            addBlock(0.05, 0.05, 0.05, 1.3, 1.05, -0.18, 0, 0, 0, COLOR_EYE, 5);
+
+            addBlock(0.35, 0.6, 0.3, 0.5, -0.4, 0.22, 0, 0, -0.05, COLOR_BODY, 6, taperBot(0.7));
+            addBlock(0.22, 0.5, 0.22, 0.53, -0.9, 0.22, 0, 0, 0.02, COLOR_WHITE, 7, taperBot(0.9));
+            addBlock(0.25, 0.15, 0.25, 0.57, -1.2, 0.22, 0, 0, 0, COLOR_DARK, 7, taperTop(0.8));
+
+            addBlock(0.35, 0.6, 0.3, 0.5, -0.4, -0.22, 0, 0, -0.05, COLOR_BODY, 8, taperBot(0.7));
+            addBlock(0.22, 0.5, 0.22, 0.53, -0.9, -0.22, 0, 0, 0.02, COLOR_WHITE, 9, taperBot(0.9));
+            addBlock(0.25, 0.15, 0.25, 0.57, -1.2, -0.22, 0, 0, 0, COLOR_DARK, 9, taperTop(0.8));
+
+            addBlock(0.35, 0.6, 0.3, -0.6, -0.4, 0.22, 0, 0, 0.1, COLOR_BODY, 10, taperBot(0.7));
+            addBlock(0.22, 0.5, 0.22, -0.65, -0.9, 0.22, 0, 0, -0.05, COLOR_WHITE, 11, taperBot(0.9));
+            addBlock(0.25, 0.15, 0.25, -0.69, -1.2, 0.22, 0, 0, 0, COLOR_DARK, 11, taperTop(0.8));
+
+            addBlock(0.35, 0.6, 0.3, -0.6, -0.4, -0.22, 0, 0, 0.1, COLOR_BODY, 12, taperBot(0.7));
+            addBlock(0.22, 0.5, 0.22, -0.65, -0.9, -0.22, 0, 0, -0.05, COLOR_WHITE, 13, taperBot(0.9));
+            addBlock(0.25, 0.15, 0.25, -0.69, -1.2, -0.22, 0, 0, 0, COLOR_DARK, 13, taperTop(0.8));
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4));
+            geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeights, 4));
+            return geometry;
+        }
+
+        // --- THREE.JS SCENE SETUP ---
+        let scene, camera, renderer, controls;
+        let ambientLight, dirLight, fillLight, stars;
+        
+        let envBarn, envCourse; 
+        let currentLocation = 'barn'; 
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // Game State Variables
+        let isPaused = false; 
+
+        // Player / Mobile Controls State
+        let isPlayerMode = false;
+        let playerIdleTime = 0;
+        let joyVector = new THREE.Vector2(0, 0);
+        const gravity = -25.0;
+        const BASE_Y = 1.27;
+
+        // --- HERD ARRAY (Holds all our horses!) ---
+        const horses = [];
+
+        // Dummy target arrays for procedural blending calculations
+        const tempQuat1 = new THREE.Quaternion();
+        const tempQuat2 = new THREE.Quaternion();
+        
+        // Environment interaction variables
+        let leftBarnDoor, rightBarnDoor, fenceGate, hayGroup;
+        let troughGroupRef; 
+        let barnFenceGroup; 
+        let barnFenceSize = 10.0;
+        let barnDoorsOpen = false;
+        let gateOpen = false;
+        let hayLevel = 1.0;
+
+        // Mini-Game State Variables
+        let gameActive = false;
+        let score = 0;
+        let money = 0;
+        let timeRemaining = 60.0;
+        const hurdlesData = []; 
+
+        // Time Cycle Variables
+        let timeOfDay = 12.0; 
+        const timeSpeed = 0.002; 
+        let lastTime = Date.now();
+        
+        // Survival Need State
+        const grassTufts = []; 
+        // Offset trough target by 1.5 units so the head reaches the food, not the body!
+        let troughPosition = new THREE.Vector3(3.0, BASE_Y, barnFenceSize - 2.3); 
+
+        window.setMobileControlsVisibility = function(visible) {
+            const joystick = document.getElementById('joystick-zone');
+            const jumpBtn = document.getElementById('jump-btn');
+            
+            if (joystick) joystick.style.display = visible ? 'block' : 'none';
+            if (jumpBtn) jumpBtn.style.display = visible ? 'flex' : 'none';
+        };
+
+        function updateHUD() {
+            document.getElementById('score-display').innerText = `Score: ${score}`;
+            document.getElementById('time-display').innerText = `Time: ${Math.ceil(timeRemaining)}s`;
+        }
+
+        function endMiniGame() {
+            gameActive = false;
+            document.getElementById('start-game-btn').style.display = 'inline-block';
+            document.getElementById('start-game-btn').innerText = 'Play Again';
+            document.getElementById('time-display').innerText = 'Time: 0s';
+            
+            if (score > 0) {
+                money += score;
+                updateMoneyDisplays();
+            }
+        }
+
+        function updateMoneyDisplays() {
+            document.getElementById('money-display').innerText = `Money: $${money}`;
+            document.getElementById('shop-money-display').innerText = `Balance: $${money}`;
+            renderShopItems(); 
+        }
+
+        // --- SHOP SYSTEM LOGIC ---
+        const shopItems = [
+            { id: 'barn_blue', name: 'Blue Barn Paint', type: 'barn', value: 0x224488, cost: 50 },
+            { id: 'barn_green', name: 'Green Barn Paint', type: 'barn', value: 0x2e8b57, cost: 50 },
+            { id: 'barn_red', name: 'Classic Red Barn', type: 'barn', value: 0x8b0000, cost: 20 },
+            
+            { id: 'silo_red', name: 'Red Silo Paint', type: 'silo', value: 0xaa3333, cost: 50 },
+            { id: 'silo_white', name: 'White Silo Paint', type: 'silo', value: 0xeeeeee, cost: 50 },
+            
+            { id: 'jump_blue', name: 'Blue Jump Poles', type: 'jump', value: 0x2266cc, cost: 30 },
+            { id: 'jump_red', name: 'Red Jump Poles', type: 'jump', value: 0xcc2222, cost: 30 },
+            { id: 'jump_wood', name: 'Wooden Jumps', type: 'jump', value: 0x8b5a2b, cost: 30 },
+            
+            { id: 'horse_black', name: 'Black Horse', type: 'horse', value: { body: 0x333333, dark: 0x111111, white: 0x222222 }, cost: 150 },
+            { id: 'horse_white', name: 'White Horse', type: 'horse', value: { body: 0xeeeeee, dark: 0xaaaaaa, white: 0xdddddd }, cost: 150 },
+            { id: 'horse_chestnut', name: 'Chestnut Horse', type: 'horse', value: { body: 0x8b4513, dark: 0x3e1f04, white: 0xffffff }, cost: 150 },
+            { id: 'horse_classic', name: 'Classic Tan Horse', type: 'horse', value: { body: 0xdcb073, dark: 0x222222, white: 0xeeeeee }, cost: 50 },
+            
+            { id: 'upgrade_paddock', name: 'Expand Paddock (+5)', type: 'upgrade', value: null, cost: 200 }
+        ];
+
+        function renderShopItems() {
+            const grid = document.getElementById('shop-grid');
+            grid.innerHTML = '';
+            
+            shopItems.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'shop-item';
+                
+                let isDisabled = money < item.cost;
+                let btnText = 'Buy';
+                if (item.type === 'upgrade' && barnFenceSize >= 25.0) {
+                    isDisabled = true;
+                    btnText = 'Maxed Out';
+                }
+
+                el.innerHTML = `
+                    <h3>${item.name}</h3>
+                    <p>$${item.cost}</p>
+                    <button class="buy-btn" ${isDisabled ? 'disabled' : ''} onclick="buyShopItem('${item.id}')">${btnText}</button>
+                `;
+                grid.appendChild(el);
+            });
+        }
+
+        window.buyShopItem = function(id) {
+            const item = shopItems.find(i => i.id === id);
+            if (!item || money < item.cost) return;
+
+            if (item.type === 'upgrade') {
+                if (barnFenceSize >= 25.0) return;
+                barnFenceSize += 5.0;
+                
+                while(barnFenceGroup.children.length > 0){ 
+                    barnFenceGroup.remove(barnFenceGroup.children[0]); 
+                }
+                fenceGate = null; 
+                createFence(barnFenceSize, barnFenceGroup, true);
+                
+                if (troughGroupRef) {
+                    troughGroupRef.position.z = barnFenceSize - 0.8;
+                    troughPosition.z = barnFenceSize - 2.3; // Preserve the 1.5 unit head reach offset
+                }
+            } 
+            else if (item.type === 'barn') {
+                matBarnWall.color.setHex(item.value);
+            } 
+            else if (item.type === 'silo') {
+                matSiloBody.color.setHex(item.value);
+            } 
+            else if (item.type === 'jump') {
+                matJumpPole.color.setHex(item.value);
+            } 
+            else if (item.type === 'horse') {
+                // Spawns a brand new autonomous horse to the herd!
+                addHorse(item.value.body, item.value.dark, item.value.white);
+            }
+
+            money -= item.cost;
+            updateMoneyDisplays();
+        };
+
+        // --- NEW: Add Horse Function ---
+        function addHorse(hexBody, hexDark, hexWhite) {
+            const geometry = createHorseGeometry(hexBody, hexDark, hexWhite);
+            
+            const bones = [];
+            for (let i = 0; i < 16; i++) bones.push(new THREE.Bone());
+
+            const worldPivots = {
+                0: new THREE.Vector3(0, 0, 0), 1: new THREE.Vector3(0, 0, 0),          
+                2: new THREE.Vector3(0.35, 0, 0), 3: new THREE.Vector3(-0.35, 0, 0),      
+                4: new THREE.Vector3(0.5, 0.2, 0), 5: new THREE.Vector3(1.15, 0.85, 0),    
+                6: new THREE.Vector3(0.5, -0.1, 0.22), 7: new THREE.Vector3(0.5, -0.65, 0.22), 
+                8: new THREE.Vector3(0.5, -0.1, -0.22), 9: new THREE.Vector3(0.5, -0.65, -0.22),
+                10: new THREE.Vector3(-0.6, -0.1, 0.22), 11: new THREE.Vector3(-0.6, -0.65, 0.22),
+                12: new THREE.Vector3(-0.6, -0.1, -0.22), 13: new THREE.Vector3(-0.6, -0.65, -0.22),
+                14: new THREE.Vector3(-0.85, 0.2, 0), 15: new THREE.Vector3(-1.0, -0.2, 0)     
+            };
+
+            const hierarchy = [
+                { child: 1, parent: 0 }, { child: 2, parent: 1 }, { child: 3, parent: 1 },
+                { child: 4, parent: 2 }, { child: 5, parent: 4 }, { child: 6, parent: 2 },
+                { child: 7, parent: 6 }, { child: 8, parent: 2 }, { child: 9, parent: 8 },
+                { child: 10, parent: 3 }, { child: 11, parent: 10 }, { child: 12, parent: 3 },
+                { child: 13, parent: 12 }, { child: 14, parent: 3 }, { child: 15, parent: 14 }
+            ];
+
+            hierarchy.forEach(link => {
+                bones[link.parent].add(bones[link.child]);
+                bones[link.child].position.copy(worldPivots[link.child]).sub(worldPivots[link.parent]);
+            });
+
+            bones[0].position.copy(worldPivots[0]);
+            
+            const basePositions = [];
+            for (let i = 0; i < 16; i++) basePositions.push(bones[i].position.clone());
+
+            const material = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9, skinning: true });
+            const skinnedMesh = new THREE.SkinnedMesh(geometry, material);
+            skinnedMesh.castShadow = true; skinnedMesh.receiveShadow = true;
+            scene.add(skinnedMesh);
+
+            const skeleton = new THREE.Skeleton(bones);
+            skinnedMesh.add(bones[0]); 
+            skinnedMesh.bind(skeleton);
+            skinnedMesh.position.y = BASE_Y;
+            
+            // Offset initial spawn so they don't stack on top of each other
+            skinnedMesh.position.x = (Math.random() - 0.5) * 4;
+            skinnedMesh.position.z = (Math.random() - 0.5) * 4;
+
+            // Push an isolated state object into our global herd array
+            horses.push({
+                mesh: skinnedMesh,
+                bones: bones,
+                basePositions: basePositions,
+                aiState: 'idle',
+                aiTimer: 2.0 + Math.random() * 4.0, // Stagger AI timers so they act organically
+                aiTarget: new THREE.Vector3(),
+                aiTargetAngle: 0,
+                horseHunger: Math.random() * 40, // Stagger hunger
+                aiTargetGrass: null,
+                animationMode: 'idle',
+                previousMode: 'idle',
+                transitionWeight: 1.0,
+                prevPose: Array.from({length: 16}, () => ({ position: new THREE.Vector3(), rotation: new THREE.Euler() })),
+                currPose: Array.from({length: 16}, () => ({ position: new THREE.Vector3(), rotation: new THREE.Euler() })),
+                playerSpeed: 0,
+                playerTurnSpeed: 0,
+                isJumping: false,
+                jumpVelocity: 0,
+                changeAnimation: function(mode) {
+                    if (this.animationMode !== mode) {
+                        this.previousMode = this.animationMode;
+                        this.animationMode = mode;
+                        this.transitionWeight = 0.0;
+                    }
+                }
+            });
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(colorDaySky); 
+            scene.fog = new THREE.Fog(colorDaySky, 15, 45); 
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(6, 4, -8); 
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true; 
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            ambientLight = new THREE.AmbientLight(colorDayAmbient, 0.5); 
+            scene.add(ambientLight);
+
+            dirLight = new THREE.DirectionalLight(colorSunLight, 0.9);
+            dirLight.castShadow = true; 
+            dirLight.shadow.camera.top = 15;
+            dirLight.shadow.camera.bottom = -15;
+            dirLight.shadow.camera.left = -15;
+            dirLight.shadow.camera.right = 15;
+            dirLight.shadow.camera.near = 0.1;
+            dirLight.shadow.camera.far = 60;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            fillLight.position.set(-10, 5, 10);
+            scene.add(fillLight);
+
+            const starGeo = new THREE.BufferGeometry();
+            const starPos = [];
+            for (let i = 0; i < 500; i++) {
+                starPos.push((Math.random() - 0.5) * 150, Math.random() * 80 + 10, (Math.random() - 0.5) * 150);
+            }
+            starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+            const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.2, transparent: true, opacity: 0 });
+            stars = new THREE.Points(starGeo, starMat);
+            scene.add(stars);
+
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x5a8231, roughness: 1.0 });
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            envBarn = new THREE.Group();
+            envCourse = new THREE.Group();
+            barnFenceGroup = new THREE.Group(); 
+            
+            scene.add(envBarn);
+            scene.add(envCourse);
+            envBarn.add(barnFenceGroup);
+            
+            // Build Barn Environment
+            createScenery(envBarn);
+            createFence(barnFenceSize, barnFenceGroup, true);
+            createTrough(3.0, barnFenceSize - 0.8, 0, envBarn);
+            createBarn(-20, 0, Math.PI / 2, 1.1, envBarn);
+
+            // Build Jumping Course Environment (Bigger paddock & Jumps arranged in oval shape)
+            createFence(22.0, envCourse, false); // Larger arena (44x44 meters)
+            
+            const numHurdles = 8;
+            const ovalA = 16.0; // Semi-major axis
+            const ovalB = 10.0; // Semi-minor axis
+            for (let i = 0; i < numHurdles; i++) {
+                // Place hurdles around ellipse, offset starting theta slightly to avoid sharp apexes
+                const theta = (i / numHurdles) * Math.PI * 2 + Math.PI / 8;
+                const hx = ovalA * Math.cos(theta);
+                const hz = ovalB * Math.sin(theta);
+                
+                // Track direction/tangent
+                const tx = -ovalA * Math.sin(theta);
+                const tz = ovalB * Math.cos(theta);
+                
+                // Angle to align hurdle perpendicular to track path
+                const rotY = Math.atan2(-tz, tx);
+                
+                createHurdle(hx, hz, rotY, envCourse);
+            }
+
+            envCourse.visible = false; 
+
+            // Spawn the primary / main horse
+            addHorse(0xdcb073, 0x222222, 0xeeeeee); 
+
+            if (typeof THREE.OrbitControls === 'function') {
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.autoRotate = false;
+                controls.maxPolarAngle = Math.PI / 2 - 0.02; 
+            } else {
+                console.warn("OrbitControls failed to load. Using dummy controls.");
+                controls = { update: () => {}, target: new THREE.Vector3(0,0,0) };
+            }
+
+            document.getElementById('start-game-btn').addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                gameActive = true;
+                score = 0;
+                timeRemaining = 60.0;
+                document.getElementById('start-game-btn').style.display = 'none';
+                updateHUD();
+
+                horses[0].mesh.position.set(0, BASE_Y, 0);
+                horses[0].mesh.rotation.set(0, 0, 0);
+                horses[0].playerSpeed = 0;
+                joyVector.set(0, 0);
+                horses[0].isJumping = false;
+                horses[0].jumpVelocity = 0;
+            });
+
+            setupMobileControls();
+            setupPauseMenu();
+
+            window.addEventListener('resize', onWindowResize, false);
+            renderer.domElement.addEventListener('pointerdown', onPointerDown, false);
+            renderer.domElement.addEventListener('pointermove', onPointerMove, false);
+        }
+
+        function setupMobileControls() {
+            const zone = document.getElementById('joystick-zone');
+            const knob = document.getElementById('joystick-knob');
+            const jumpBtn = document.getElementById('jump-btn');
+            
+            let center = { x: 0, y: 0 };
+            let maxRadius = 60;
+            let activePointerId = null;
+
+            zone.addEventListener('pointerdown', (e) => {
+                e.stopPropagation(); 
+                if (isPaused) return; 
+                
+                isPlayerMode = true;
+                playerIdleTime = 0;
+                activePointerId = e.pointerId;
+                const rect = zone.getBoundingClientRect();
+                center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                updateJoystick(e);
+                zone.setPointerCapture(e.pointerId);
+            });
+
+            zone.addEventListener('pointermove', (e) => {
+                e.stopPropagation();
+                if (e.pointerId !== activePointerId || isPaused) return;
+                updateJoystick(e);
+            });
+
+            const resetJoystick = (e) => {
+                e.stopPropagation();
+                if (e.pointerId !== activePointerId) return;
+                activePointerId = null;
+                knob.style.transform = `translate(-50%, -50%)`;
+                joyVector.set(0, 0);
+            };
+
+            zone.addEventListener('pointerup', resetJoystick);
+            zone.addEventListener('pointercancel', resetJoystick);
+
+            function updateJoystick(e) {
+                let dx = e.clientX - center.x;
+                let dy = e.clientY - center.y;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                
+                if (distance > maxRadius) {
+                    dx = (dx / distance) * maxRadius;
+                    dy = (dy / distance) * maxRadius;
+                }
+                
+                knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                joyVector.set(dx / maxRadius, -dy / maxRadius);
+            }
+
+            if (jumpBtn) {
+                jumpBtn.addEventListener('pointerdown', (e) => {
+                    e.stopPropagation();
+                    if (isPaused) return;
+                    
+                    isPlayerMode = true;
+                    playerIdleTime = 0;
+                    if (!horses[0].isJumping) {
+                        horses[0].isJumping = true;
+                        horses[0].jumpVelocity = 10.0; 
+                        horses[0].changeAnimation('jump');
+                    }
+                });
+            }
+        }
+
+        function setupPauseMenu() {
+            const pauseBtn = document.getElementById('pause-btn');
+            const pauseScreen = document.getElementById('pause-screen');
+            const resumeBtn = document.getElementById('resume-btn');
+            const switchSceneBtn = document.getElementById('switch-scene-btn');
+            const openShopBtn = document.getElementById('open-shop-btn');
+            const closeShopBtn = document.getElementById('close-shop-btn');
+            const shopScreen = document.getElementById('shop-screen');
+
+            pauseBtn.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                isPaused = true;
+                pauseScreen.classList.add('active');
+            });
+
+            resumeBtn.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                isPaused = false;
+                pauseScreen.classList.remove('active');
+                lastTime = Date.now(); 
+            });
+
+            openShopBtn.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                renderShopItems(); 
+                shopScreen.classList.add('active');
+            });
+
+            closeShopBtn.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                shopScreen.classList.remove('active');
+            });
+
+            switchSceneBtn.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                if (currentLocation === 'barn') {
+                    currentLocation = 'course';
+                    envBarn.visible = false;
+                    envCourse.visible = true;
+                    switchSceneBtn.innerText = "Go to Barn";
+                    window.setMobileControlsVisibility(true);
+                    isPlayerMode = true; 
+                    
+                    document.getElementById('minigame-hud').style.display = 'block';
+                    gameActive = false;
+                    document.getElementById('start-game-btn').style.display = 'inline-block';
+                    document.getElementById('start-game-btn').innerText = 'Start Mini-Game';
+                    score = 0;
+                    timeRemaining = 60.0;
+                    updateHUD();
+                } else {
+                    currentLocation = 'barn';
+                    envCourse.visible = false;
+                    envBarn.visible = true;
+                    switchSceneBtn.innerText = "Go to Jumping Course";
+                    window.setMobileControlsVisibility(false);
+                    isPlayerMode = false;
+                    
+                    document.getElementById('minigame-hud').style.display = 'none';
+                    gameActive = false;
+                }
+                
+                // Safely teleport the entire herd to the active scene
+                horses.forEach((h, index) => {
+                    h.mesh.position.set((Math.random() - 0.5) * 6, BASE_Y, (Math.random() - 0.5) * 6);
+                    if (index === 0) h.mesh.position.set(0, BASE_Y, 0); // Primary horse strictly centered
+                    h.mesh.rotation.set(0, 0, 0);
+                    h.isJumping = false;
+                    h.playerSpeed = 0;
+                    h.aiState = 'idle';
+                    h.aiTimer = 1.0 + Math.random();
+                });
+                
+                joyVector.set(0, 0);
+                isPaused = false;
+                pauseScreen.classList.remove('active');
+                lastTime = Date.now();
+            });
+        }
+
+        function createHurdle(x, z, rotation, parentGroup) {
+            const hurdleGroup = new THREE.Group();
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, flatShading: true });
+            
+            const standGeo = new THREE.BoxGeometry(0.3, 2.0, 0.3);
+            const leftStand = new THREE.Mesh(standGeo, woodMat); 
+            leftStand.position.set(-2.5, 1.0, 0); leftStand.castShadow = true;
+            
+            const rightStand = new THREE.Mesh(standGeo, woodMat); 
+            rightStand.position.set(2.5, 1.0, 0); rightStand.castShadow = true;
+            
+            const poleGeo = new THREE.CylinderGeometry(0.15, 0.15, 5.0, 8);
+            const pole1 = new THREE.Mesh(poleGeo, matJumpPole);
+            pole1.rotation.z = Math.PI / 2; pole1.position.set(0, 1.5, 0); pole1.castShadow = true;
+
+            const pole2 = new THREE.Mesh(poleGeo, matJumpPole);
+            pole2.rotation.z = Math.PI / 2; pole2.position.set(0, 0.8, 0); pole2.castShadow = true;
+
+            hurdleGroup.add(leftStand, rightStand, pole1, pole2);
+            hurdleGroup.position.set(x, 0, z);
+            hurdleGroup.rotation.y = rotation;
+            parentGroup.add(hurdleGroup);
+            
+            hurdlesData.push({ x: x, z: z, radius: 2.5, rotation: rotation, lastCleared: 0 });
+        }
+
+        function createScenery(parentGroup) {
+            const createTree = (x, z, scale) => {
+                const treeGroup = new THREE.Group();
+                const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 1.5, 5);
+                const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, flatShading: true });
+                const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                trunk.position.y = 0.75; trunk.castShadow = true; trunk.receiveShadow = true;
+                treeGroup.add(trunk);
+
+                const leavesGeo = new THREE.ConeGeometry(1.2, 3, 5);
+                const leavesMat = new THREE.MeshStandardMaterial({ color: 0x2d4c1e, flatShading: true });
+                const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+                leaves.position.y = 2.5; leaves.castShadow = true; leaves.receiveShadow = true;
+                treeGroup.add(leaves);
+
+                treeGroup.position.set(x, 0, z);
+                treeGroup.scale.set(scale, scale, scale);
+                treeGroup.rotation.y = Math.random() * Math.PI;
+                parentGroup.add(treeGroup);
+            };
+
+            const createRock = (x, z, scale) => {
+                const rockGeo = new THREE.DodecahedronGeometry(1, 0);
+                const rockMat = new THREE.MeshStandardMaterial({ color: 0x777777, flatShading: true });
+                const rock = new THREE.Mesh(rockGeo, rockMat);
+                rock.position.set(x, 0.3 * scale, z);
+                rock.scale.set(scale, scale * 0.7, scale * 1.2);
+                rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+                rock.castShadow = true; rock.receiveShadow = true;
+                parentGroup.add(rock);
+            };
+
+            const createGrassTuft = (x, z) => {
+                const tuft = new THREE.Group();
+                const numBlades = 4 + Math.floor(Math.random() * 3); 
+                const bladeMat = new THREE.MeshStandardMaterial({ color: 0x689f38, flatShading: true }); 
+                
+                for(let i = 0; i < numBlades; i++) {
+                    const h = 0.25 + Math.random() * 0.2;
+                    const bladeGeo = new THREE.ConeGeometry(0.05, h, 3);
+                    bladeGeo.translate(0, h / 2, 0); 
+                    const blade = new THREE.Mesh(bladeGeo, bladeMat);
+                    const angle = (i / numBlades) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+                    blade.rotation.order = 'YXZ';
+                    blade.rotation.y = angle;
+                    blade.rotation.x = 0.2 + Math.random() * 0.4; 
+                    blade.position.x = Math.sin(angle) * 0.05;
+                    blade.position.z = Math.cos(angle) * 0.05;
+                    blade.castShadow = true; blade.receiveShadow = true;
+                    tuft.add(blade);
+                }
+                tuft.position.set(x, 0, z);
+                parentGroup.add(tuft);
+                return tuft;
+            };
+
+            const flowerColors = [0xff1493, 0xffd700, 0xffffff, 0x8a2be2, 0xff4500]; 
+            const createFlower = (x, z) => {
+                const flower = new THREE.Group();
+                const stemGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.4, 4);
+                const stemMat = new THREE.MeshStandardMaterial({ color: 0x2e8b57, flatShading: true });
+                const stem = new THREE.Mesh(stemGeo, stemMat);
+                stem.position.y = 0.2; stem.castShadow = true; stem.receiveShadow = true;
+                flower.add(stem);
+
+                const bloomGeo = new THREE.DodecahedronGeometry(0.12, 0);
+                const randomColor = flowerColors[Math.floor(Math.random() * flowerColors.length)];
+                const bloomMat = new THREE.MeshStandardMaterial({ color: randomColor, flatShading: true });
+                const bloom = new THREE.Mesh(bloomGeo, bloomMat);
+                bloom.position.y = 0.4; bloom.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+                bloom.castShadow = true; bloom.receiveShadow = true;
+                flower.add(bloom);
+
+                flower.position.set(x, 0, z);
+                parentGroup.add(flower);
+            };
+
+            createTree(-12, -12, 1.5);
+            createTree(14, -10, 2.0);
+            createTree(12, 12, 1.2);
+            createTree(-14, 10, 1.8);
+            createTree(-18, -12, 1.0); 
+            createTree(15, 3, 1.6);
+            createTree(-5, -16, 1.4);
+            createTree(5, 16, 1.5);
+            createTree(-15, 16, 1.7);
+            
+            createRock(10, 10, 0.6);
+            createRock(-10, 11, 0.4);
+            createRock(11, -11, 0.8);
+            createRock(-11, -11, 0.5);
+            createRock(15, -2, 0.4);
+
+            for (let i = 0; i < 80; i++) {
+                const gx = (Math.random() - 0.5) * 40;
+                const gz = (Math.random() - 0.5) * 40;
+                if (Math.abs(gx) < 3 && Math.abs(gz) < 3) continue;
+                if (gx < -11 && Math.abs(gz) < 6) continue;
+                
+                const tuftMesh = createGrassTuft(gx, gz);
+                grassTufts.push({ mesh: tuftMesh, position: new THREE.Vector3(gx, BASE_Y, gz), growth: 1.0 });
+            }
+
+            for (let i = 0; i < 30; i++) {
+                const fx = (Math.random() - 0.5) * 35;
+                const fz = (Math.random() - 0.5) * 35;
+                if (Math.abs(fx) < 3 && Math.abs(fz) < 3) continue;
+                if (fx < -11 && Math.abs(fz) < 6) continue;
+                createFlower(fx, fz);
+            }
+        }
+
+        const markBarnInteractable = (mesh) => { mesh.userData.interactable = 'barnDoor'; };
+
+        function createBarn(x, z, rotationY, scale, parentGroup) {
+            const barnGroup = new THREE.Group();
+            
+            const roofMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, flatShading: true, roughness: 0.8, side: THREE.DoubleSide });
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, flatShading: true });
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, flatShading: true, roughness: 1.0 });
+
+            const createWall = (w, h, d, wx, wy, wz) => {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matBarnWall);
+                mesh.position.set(wx, wy, wz);
+                mesh.castShadow = true; mesh.receiveShadow = true;
+                barnGroup.add(mesh);
+            };
+
+            createWall(0.2, 5.0, 8.0, -3.9, 2.5, 0);    
+            createWall(0.2, 5.0, 8.0,  3.9, 2.5, 0);    
+            createWall(7.6, 5.0, 0.2,  0, 2.5, -3.9);   
+            createWall(2.4, 5.0, 0.2, -2.8, 2.5, 3.9);  
+            createWall(2.4, 5.0, 0.2,  2.8, 2.5, 3.9);  
+            createWall(3.2, 0.8, 0.2,  0, 4.6, 3.9);    
+
+            const gableShape = new THREE.Shape();
+            gableShape.moveTo(-4, 5); gableShape.lineTo(-2.5, 8); gableShape.lineTo(0, 9.5);
+            gableShape.lineTo(2.5, 8); gableShape.lineTo(4, 5); gableShape.lineTo(-4, 5);
+            
+            const gableGeo = new THREE.ExtrudeGeometry(gableShape, { depth: 0.2, bevelEnabled: false });
+            const backGable = new THREE.Mesh(gableGeo, matBarnWall);
+            backGable.position.set(0, 0, -4.0); backGable.castShadow = true; backGable.receiveShadow = true;
+            barnGroup.add(backGable);
+
+            const frontGable = new THREE.Mesh(gableGeo, matBarnWall);
+            frontGable.position.set(0, 0, 3.8); frontGable.castShadow = true; frontGable.receiveShadow = true;
+            barnGroup.add(frontGable);
+
+            const roofShape = new THREE.Shape();
+            roofShape.moveTo(-4.5, 4.8); roofShape.lineTo(-2.8, 8.2); roofShape.lineTo(0, 9.8);
+            roofShape.lineTo(2.8, 8.2); roofShape.lineTo(4.5, 4.8); roofShape.lineTo(4.1, 4.6);
+            roofShape.lineTo(2.6, 7.8); roofShape.lineTo(0, 9.2); roofShape.lineTo(-2.6, 7.8);
+            roofShape.lineTo(-4.1, 4.6); roofShape.lineTo(-4.5, 4.8); 
+
+            const roofGeo = new THREE.ExtrudeGeometry(roofShape, { depth: 8.6, bevelEnabled: false });
+            roofGeo.translate(0, 0, -4.3); 
+            const roof = new THREE.Mesh(roofGeo, roofMat);
+            roof.castShadow = true; roof.receiveShadow = true;
+            barnGroup.add(roof);
+
+            const floorGeo = new THREE.PlaneGeometry(7.6, 7.6);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 1.0 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0.02, 0); floor.receiveShadow = true;
+            barnGroup.add(floor);
+
+            const createStall = (w, h, d, sx, sy, sz) => {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), woodMat);
+                mesh.position.set(sx, sy, sz); mesh.castShadow = true; mesh.receiveShadow = true;
+                barnGroup.add(mesh);
+            };
+            createStall(0.1, 1.4, 7.6, -1.5, 0.7, 0); 
+            createStall(2.3, 1.4, 0.1, -2.65, 0.7, 0); 
+
+            const frameSideGeo = new THREE.BoxGeometry(0.2, 4.2, 0.15);
+            const frameTopGeo = new THREE.BoxGeometry(3.6, 0.2, 0.15);
+            const leftFrame = new THREE.Mesh(frameSideGeo, whiteMat); leftFrame.position.set(-1.7, 2.1, 4.05); barnGroup.add(leftFrame);
+            const rightFrame = new THREE.Mesh(frameSideGeo, whiteMat); rightFrame.position.set(1.7, 2.1, 4.05); barnGroup.add(rightFrame);
+            const topFrame = new THREE.Mesh(frameTopGeo, whiteMat); topFrame.position.set(0, 4.3, 4.05); barnGroup.add(topFrame);
+
+            leftBarnDoor = new THREE.Group();
+            leftBarnDoor.position.set(-1.6, 2.1, 4.02); 
+            const halfDoorGeo = new THREE.BoxGeometry(1.6, 4.2, 0.05);
+            const leftDoorMesh = new THREE.Mesh(halfDoorGeo, whiteMat);
+            leftDoorMesh.position.set(0.8, 0, 0); leftDoorMesh.castShadow = true; leftDoorMesh.receiveShadow = true;
+            markBarnInteractable(leftDoorMesh); leftBarnDoor.add(leftDoorMesh);
+            
+            const doorCrossGeo = new THREE.BoxGeometry(0.1, 4.4, 0.08);
+            const leftBar = new THREE.Mesh(doorCrossGeo, matBarnWall); 
+            leftBar.position.set(0.8, 0, 0); leftBar.rotation.z = -Math.PI / 7.5; 
+            markBarnInteractable(leftBar); leftBarnDoor.add(leftBar);
+            barnGroup.add(leftBarnDoor);
+
+            rightBarnDoor = new THREE.Group();
+            rightBarnDoor.position.set(1.6, 2.1, 4.02); 
+            const rightDoorMesh = new THREE.Mesh(halfDoorGeo, whiteMat);
+            rightDoorMesh.position.set(-0.8, 0, 0); rightDoorMesh.castShadow = true; rightDoorMesh.receiveShadow = true;
+            markBarnInteractable(rightDoorMesh); rightBarnDoor.add(rightDoorMesh);
+            
+            const rightBar = new THREE.Mesh(doorCrossGeo, matBarnWall);
+            rightBar.position.set(-0.8, 0, 0); rightBar.rotation.z = Math.PI / 7.5;
+            markBarnInteractable(rightBar); rightBarnDoor.add(rightBar);
+            barnGroup.add(rightBarnDoor);
+
+            const siloGeo = new THREE.CylinderGeometry(2, 2, 10, 8);
+            const silo = new THREE.Mesh(siloGeo, matSiloBody);
+            silo.position.set(-5, 5, -2); silo.castShadow = true; silo.receiveShadow = true;
+            barnGroup.add(silo);
+
+            const siloDomeGeo = new THREE.SphereGeometry(2, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+            const siloDome = new THREE.Mesh(siloDomeGeo, roofMat);
+            siloDome.position.set(-5, 10, -2); siloDome.castShadow = true; siloDome.receiveShadow = true;
+            barnGroup.add(siloDome);
+
+            barnGroup.position.set(x, 0, z);
+            barnGroup.rotation.y = rotationY;
+            barnGroup.scale.set(scale, scale, scale);
+            parentGroup.add(barnGroup);
+        }
+
+        function createFence(halfSize, parentGroup, hasGate) {
+            const postGeo = new THREE.BoxGeometry(0.2, 1.1, 0.2);
+            const fenceMat = new THREE.MeshStandardMaterial({ color: 0x7c5c43, flatShading: true, roughness: 1.0 });
+            const markGateInteractable = (mesh) => { mesh.userData.interactable = 'gate'; };
+
+            const railGeoX = new THREE.BoxGeometry(4.0, 0.08, 0.1);
+            const railGeoZ = new THREE.BoxGeometry(0.1, 0.08, 4.0);
+
+            const step = 4;
+            for (let coord = -halfSize; coord <= halfSize; coord += step) {
+                const post1 = new THREE.Mesh(postGeo, fenceMat); post1.position.set(coord, 0.55, halfSize);
+                post1.castShadow = true; post1.receiveShadow = true; parentGroup.add(post1);
+
+                const post2 = new THREE.Mesh(postGeo, fenceMat); post2.position.set(coord, 0.55, -halfSize);
+                post2.castShadow = true; post2.receiveShadow = true; parentGroup.add(post2);
+
+                if (coord > -halfSize && coord < halfSize) {
+                    const post3 = new THREE.Mesh(postGeo, fenceMat); post3.position.set(halfSize, 0.55, coord);
+                    post3.castShadow = true; post3.receiveShadow = true; parentGroup.add(post3);
+
+                    const post4 = new THREE.Mesh(postGeo, fenceMat); post4.position.set(-halfSize, 0.55, coord);
+                    post4.castShadow = true; post4.receiveShadow = true; parentGroup.add(post4);
+                }
+
+                if (coord < halfSize) {
+                    const isGateSegment = hasGate && (coord === -4);
+
+                    for (let h of [0.4, 0.85]) {
+                        const railZ1 = new THREE.Mesh(railGeoX, fenceMat); railZ1.position.set(coord + step/2, h, halfSize);
+                        railZ1.castShadow = true; railZ1.receiveShadow = true; parentGroup.add(railZ1);
+
+                        const railZ2 = new THREE.Mesh(railGeoX, fenceMat); railZ2.position.set(coord + step/2, h, -halfSize);
+                        railZ2.castShadow = true; railZ2.receiveShadow = true; parentGroup.add(railZ2);
+
+                        const railX1 = new THREE.Mesh(railGeoZ, fenceMat); railX1.position.set(halfSize, h, coord + step/2);
+                        railX1.castShadow = true; railX1.receiveShadow = true; parentGroup.add(railX1);
+
+                        if (!isGateSegment) {
+                            const railX2 = new THREE.Mesh(railGeoZ, fenceMat); railX2.position.set(-halfSize, h, coord + step/2);
+                            railX2.castShadow = true; railX2.receiveShadow = true; parentGroup.add(railX2);
+                        }
+                    }
+                    
+                    if (isGateSegment) {
+                        if (!fenceGate) {
+                            fenceGate = new THREE.Group();
+                            fenceGate.position.set(-halfSize, 0, coord);
+                            const gateMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, flatShading: true, roughness: 1.0 }); 
+                            
+                            for (let h of [0.4, 0.85]) {
+                                const gateRail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 3.8), gateMat);
+                                gateRail.position.set(0, h, 1.9); gateRail.castShadow = true; gateRail.receiveShadow = true;
+                                markGateInteractable(gateRail); fenceGate.add(gateRail);
+                            }
+                            
+                            for (let z of [0.1, 3.7]) {
+                                const stile = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.7, 0.1), gateMat);
+                                stile.position.set(0, 0.625, z); stile.castShadow = true; stile.receiveShadow = true;
+                                markGateInteractable(stile); fenceGate.add(stile);
+                            }
+                            
+                            const brace = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 3.6), gateMat);
+                            brace.position.set(0.05, 0.625, 1.9); brace.rotation.x = -Math.atan2(0.45, 3.6); 
+                            brace.castShadow = true; brace.receiveShadow = true;
+                            markGateInteractable(brace); fenceGate.add(brace);
+
+                            parentGroup.add(fenceGate);
+                        }
+                    }
+                }
+            }
+        }
+
+        function createTrough(x, z, rotationY, parentGroup) {
+            const troughGroup = new THREE.Group();
+            troughGroupRef = troughGroup; 
+
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, flatShading: true, roughness: 0.9 }); 
+            const hayMat = new THREE.MeshStandardMaterial({ color: 0xdaa520, flatShading: true, roughness: 1.0 }); 
+            const markTroughInteractable = (mesh) => { mesh.userData.interactable = 'trough'; };
+
+            const base = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 1.2), woodMat); base.position.y = 0.4;
+            base.castShadow = true; base.receiveShadow = true; markTroughInteractable(base); troughGroup.add(base);
+
+            const side1 = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.6, 0.1), woodMat); side1.position.set(0, 0.65, 0.6); side1.rotation.x = -0.2; 
+            side1.castShadow = true; side1.receiveShadow = true; markTroughInteractable(side1); troughGroup.add(side1);
+
+            const side2 = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.6, 0.1), woodMat); side2.position.set(0, 0.65, -0.6); side2.rotation.x = 0.2; 
+            side2.castShadow = true; side2.receiveShadow = true; markTroughInteractable(side2); troughGroup.add(side2);
+
+            const end1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 1.15), woodMat); end1.position.set(1.45, 0.65, 0);
+            end1.castShadow = true; end1.receiveShadow = true; markTroughInteractable(end1); troughGroup.add(end1);
+
+            const end2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 1.15), woodMat); end2.position.set(-1.45, 0.65, 0);
+            end2.castShadow = true; end2.receiveShadow = true; markTroughInteractable(end2); troughGroup.add(end2);
+
+            const legGeo = new THREE.BoxGeometry(0.15, 0.4, 0.15);
+            const legOffsets = [[1.3, 0.4], [1.3, -0.4], [-1.3, 0.4], [-1.3, -0.4]];
+            legOffsets.forEach(pos => {
+                const leg = new THREE.Mesh(legGeo, woodMat); leg.position.set(pos[0], 0.2, pos[1]);
+                leg.castShadow = true; leg.receiveShadow = true; markTroughInteractable(leg); troughGroup.add(leg);
+            });
+
+            hayGroup = new THREE.Group(); hayGroup.position.set(0, 0.4, 0); 
+            
+            const hayGeo = new THREE.BoxGeometry(2.8, 0.3, 0.9); hayGeo.translate(0, 0.15, 0); 
+            const hay = new THREE.Mesh(hayGeo, hayMat); hay.castShadow = true; hay.receiveShadow = true;
+            markTroughInteractable(hay); hayGroup.add(hay);
+            
+            const hayTopGeo = new THREE.DodecahedronGeometry(0.4, 0); hayTopGeo.translate(0, 0.2, 0); 
+            const hayTop1 = new THREE.Mesh(hayTopGeo, hayMat); hayTop1.position.set(0.5, 0.3, 0);
+            hayTop1.scale.set(2.0, 0.5, 1.0); hayTop1.rotation.set(Math.random(), Math.random(), 0);
+            hayTop1.castShadow = true; hayTop1.receiveShadow = true; markTroughInteractable(hayTop1); hayGroup.add(hayTop1);
+
+            const hayTop2 = new THREE.Mesh(hayTopGeo, hayMat); hayTop2.position.set(-0.6, 0.3, 0.1);
+            hayTop2.scale.set(1.5, 0.6, 0.8); hayTop2.rotation.set(Math.random(), Math.random(), 0);
+            hayTop2.castShadow = true; hayTop2.receiveShadow = true; markTroughInteractable(hayTop2); hayGroup.add(hayTop2);
+
+            troughGroup.add(hayGroup);
+            troughGroup.position.set(x, 0, z); troughGroup.rotation.y = rotationY;
+            parentGroup.add(troughGroup);
+        }
+
+        function onPointerDown(event) {
+            if (isPaused) return; 
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            for (let i = 0; i < intersects.length; i++) {
+                const interactable = intersects[i].object.userData.interactable;
+                
+                if (interactable === 'barnDoor') {
+                    barnDoorsOpen = !barnDoorsOpen;
+                    break; 
+                } else if (interactable === 'gate') {
+                    gateOpen = !gateOpen;
+                    break;
+                } else if (interactable === 'trough') {
+                    hayLevel = 1.0;
+                    if (hayGroup) hayGroup.scale.y = 1.0;
+                    break;
+                }
+            }
+        }
+
+        function onPointerMove(event) {
+            if (isPaused) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            
+            let hoveringInteractable = false;
+            for (let i = 0; i < intersects.length; i++) {
+                if (intersects[i].object.userData.interactable) {
+                    hoveringInteractable = true;
+                    break;
+                }
+            }
+            
+            document.body.style.cursor = hoveringInteractable ? 'pointer' : 'default';
+        }
+
+        function updateDayNightCycle() {
+            timeOfDay += timeSpeed;
+            if (timeOfDay >= 24) timeOfDay -= 24;
+
+            const isDay = timeOfDay >= 6 && timeOfDay < 18;
+            let progress;
+            if (isDay) {
+                progress = (timeOfDay - 6) / 12; 
+            } else {
+                let nightTime = timeOfDay >= 18 ? timeOfDay - 18 : timeOfDay + 6;
+                progress = nightTime / 12; 
+            }
+
+            const angle = progress * Math.PI; 
+            dirLight.position.set(Math.cos(angle) * 20, Math.sin(angle) * 20, -10);
+
+            const h = Math.sin(angle); 
+            const twilight = Math.max(0, 1.0 - h / 0.3); 
+
+            let currentSky = new THREE.Color();
+            let currentLight = new THREE.Color();
+            let currentAmbient = new THREE.Color();
+            let lightIntensity = 0;
+
+            if (isDay) {
+                currentSky.copy(colorSunsetSky).lerp(colorDaySky, 1.0 - twilight);
+                currentLight.copy(colorSunsetLight).lerp(colorSunLight, 1.0 - twilight);
+                currentAmbient.copy(colorSunsetAmbient).lerp(colorDayAmbient, 1.0 - twilight);
+                lightIntensity = 0.9 * (1.0 - (twilight * 0.5)); 
+            } else {
+                currentSky.copy(colorSunsetSky).lerp(colorNightSky, 1.0 - twilight);
+                currentLight.copy(colorSunsetLight).lerp(colorMoonLight, 1.0 - twilight);
+                currentAmbient.copy(colorSunsetAmbient).lerp(colorNightAmbient, 1.0 - twilight);
+                lightIntensity = 0.3 * (1.0 - (twilight * 0.5)); 
+            }
+
+            const horizonFade = Math.min(1.0, h * 10.0); 
+            lightIntensity *= horizonFade;
+
+            scene.background.copy(currentSky);
+            scene.fog.color.copy(currentSky);
+            dirLight.color.copy(currentLight);
+            dirLight.intensity = lightIntensity;
+            ambientLight.color.copy(currentAmbient);
+            ambientLight.intensity = isDay ? 0.5 : 0.2;
+            fillLight.intensity = isDay ? 0.3 : 0.05;
+
+            if (stars) {
+                stars.material.opacity = isDay ? 0 : Math.min(1.0, (1.0 - twilight) * 1.5) * horizonFade; 
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function computePose(mode, time, targetPose, basePositions) {
+            for (let i = 0; i < 16; i++) {
+                if (basePositions.length > 0) {
+                    targetPose[i].position.copy(basePositions[i]);
+                }
+                targetPose[i].rotation.set(0, 0, 0);
+            }
+
+            if (mode === 'walk') {
+                const speed = 1.0;
+                const t = time * speed;
+                const legSwing = Math.sin(t) * 0.45;
+                const lowerSwing = Math.max(0, Math.sin(t + Math.PI / 4)) * 0.35;
+                const altLegSwing = -legSwing;
+                const altLowerSwing = Math.max(0, Math.sin(t + Math.PI + Math.PI / 4)) * 0.35;
+
+                targetPose[4].rotation.z = -0.4 + Math.sin(t * 2) * 0.05; 
+                targetPose[5].rotation.z = Math.sin(t * 2) * 0.05;  
+                targetPose[14].rotation.y = Math.sin(t * 2) * 0.3;
+                targetPose[15].rotation.y = Math.sin(t * 2 + 0.5) * 0.2;
+
+                targetPose[6].rotation.z = legSwing;        targetPose[7].rotation.z = -lowerSwing;     
+                targetPose[12].rotation.z = altLegSwing;    targetPose[13].rotation.z = altLowerSwing;  
+                targetPose[8].rotation.z = altLegSwing;     targetPose[9].rotation.z = -altLowerSwing;  
+                targetPose[10].rotation.z = legSwing;       targetPose[11].rotation.z = lowerSwing;     
+                
+                targetPose[1].position.y = Math.abs(Math.sin(t * 2)) * 0.08 - 0.04;
+                targetPose[1].rotation.z = Math.sin(t * 2) * 0.02;
+
+            } else if (mode === 'canter') {
+                const speed = 2.2;
+                const t = time * speed;
+
+                const blSwing = Math.sin(t) * 0.6;
+                const blLower = Math.max(0, Math.sin(t + 0.5)) * 0.7;
+                const diagSwing = Math.sin(t - 0.6) * 0.6;
+                const diagLower = Math.max(0, Math.sin(t - 0.6 + 0.5)) * 0.7;
+                const frSwing = Math.sin(t - 1.2) * 0.7; 
+                const frLower = Math.max(0, Math.sin(t - 1.2 + 0.5)) * 0.8;
+
+                targetPose[6].rotation.z = diagSwing;       targetPose[7].rotation.z = -diagLower;
+                targetPose[8].rotation.z = frSwing;         targetPose[9].rotation.z = -frLower;
+                targetPose[10].rotation.z = blSwing;        targetPose[11].rotation.z = blLower;
+                targetPose[12].rotation.z = diagSwing;      targetPose[13].rotation.z = diagLower;
+
+                targetPose[1].rotation.z = Math.sin(t - 0.6) * 0.12; 
+                targetPose[1].position.y = Math.sin(t * 2 - 1.2) * 0.08 + 0.05; 
+
+                targetPose[4].rotation.z = -0.4 - Math.sin(t - 0.6) * 0.15;
+                targetPose[5].rotation.z = Math.sin(t - 0.6) * 0.05;
+
+                targetPose[14].rotation.z = 0.3 + Math.sin(t * 2) * 0.1;
+                targetPose[14].rotation.y = 0;
+                targetPose[15].rotation.z = 0.1;
+
+            } else if (mode === 'gallop') {
+                const speed = 2.8;
+                const t = time * speed;
+                
+                const flSwing = Math.sin(t) * 0.7;
+                const flLower = Math.max(0, Math.sin(t + 0.5)) * 0.8;
+                const frSwing = Math.sin(t - 0.4) * 0.7;
+                const frLower = Math.max(0, Math.sin(t - 0.4 + 0.5)) * 0.8;
+                const blSwing = Math.sin(t + Math.PI - 0.4) * 0.7;
+                const blLower = Math.max(0, Math.sin(t + Math.PI - 0.4 + 0.5)) * 0.8;
+                const brSwing = Math.sin(t + Math.PI) * 0.7;
+                const brLower = Math.max(0, Math.sin(t + Math.PI + 0.5)) * 0.8;
+
+                targetPose[6].rotation.z = flSwing; targetPose[7].rotation.z = -flLower;
+                targetPose[8].rotation.z = frSwing; targetPose[9].rotation.z = -frLower;
+                targetPose[10].rotation.z = blSwing; targetPose[11].rotation.z = blLower;
+                targetPose[12].rotation.z = brSwing; targetPose[13].rotation.z = brLower;
+                
+                targetPose[1].rotation.z = Math.sin(t - 1.0) * 0.15;
+                targetPose[1].position.y = Math.sin(t * 2 - 1.0) * 0.15 + 0.1;
+                
+                targetPose[4].rotation.z = -0.5 - Math.sin(t - 1.0) * 0.2; 
+                targetPose[5].rotation.z = Math.sin(t - 1.0) * 0.1;
+                
+                targetPose[14].rotation.y = 0; 
+                targetPose[14].rotation.z = 0.5 + Math.sin(t * 2) * 0.1;
+                targetPose[15].rotation.z = 0.2;
+
+            } else if (mode === 'jump') {
+                targetPose[6].rotation.z = 1.0; targetPose[7].rotation.z = -1.5; 
+                targetPose[8].rotation.z = 1.0; targetPose[9].rotation.z = -1.5;
+                
+                targetPose[10].rotation.z = -0.8; targetPose[11].rotation.z = 0.5;  
+                targetPose[12].rotation.z = -0.8; targetPose[13].rotation.z = 0.5;
+                
+                targetPose[1].rotation.z = 0.4;
+                targetPose[4].rotation.z = -0.5; 
+                targetPose[14].rotation.z = 0.8;
+                
+            } else if (mode === 'eat') {
+                const t = time * 0.5;
+                targetPose[4].rotation.z = -1.2 + Math.sin(t) * 0.05; 
+                targetPose[5].rotation.z = 0.6 + Math.sin(t * 3) * 0.05; 
+                targetPose[1].position.y = -0.02; 
+                targetPose[1].rotation.z = -0.05;
+                
+                targetPose[6].rotation.z = 0.2;  targetPose[8].rotation.z = -0.2; 
+                targetPose[14].rotation.y = Math.sin(t * 0.8) * 0.1; targetPose[14].rotation.z = 0; 
+
+            } else if (mode === 'rear') {
+                const t = time * 1.5;
+                const basePitch = 0.8;
+                targetPose[1].rotation.z = basePitch + Math.sin(t) * 0.05; 
+                targetPose[1].position.y = 0.4 + Math.sin(t) * 0.02; 
+                targetPose[1].position.x = -0.2; 
+
+                targetPose[4].rotation.z = -0.2 + Math.sin(t + 1) * 0.05;
+                targetPose[5].rotation.z = -0.3; 
+                
+                targetPose[6].rotation.z = 0.8 + Math.sin(t * 2) * 0.3; 
+                targetPose[7].rotation.z = -1.0 + Math.sin(t * 2) * 0.2; 
+                targetPose[8].rotation.z = 0.6 + Math.sin(t * 2 + Math.PI) * 0.3; 
+                targetPose[9].rotation.z = -1.2 + Math.sin(t * 2 + Math.PI) * 0.2; 
+                
+                targetPose[10].rotation.z = -0.8; targetPose[11].rotation.z = 0.2;  
+                targetPose[12].rotation.z = -0.8; targetPose[13].rotation.z = 0.2;
+                
+                targetPose[14].rotation.z = -0.7 + Math.sin(t) * 0.1;
+                targetPose[14].rotation.y = Math.sin(t * 0.5) * 0.1;
+                
+            } else if (mode === 'shake') {
+                const fastT = time * 25.0; 
+                const intensity = 0.6 + Math.sin(time * 2.5) * 0.4; 
+
+                targetPose[4].rotation.x = Math.sin(fastT) * 0.15 * intensity;
+                targetPose[4].rotation.y = Math.cos(fastT * 0.8) * 0.1 * intensity;
+                targetPose[4].rotation.z = -0.3; 
+                
+                targetPose[5].rotation.x = Math.sin(fastT - 1.0) * 0.2 * intensity; 
+                targetPose[5].rotation.y = Math.cos(fastT - 1.0) * 0.1 * intensity;
+
+                targetPose[1].rotation.x = Math.sin(fastT - 2.0) * 0.06 * intensity;
+                targetPose[1].rotation.z = 0; targetPose[1].position.y = 0;
+
+                targetPose[14].rotation.y = Math.sin(fastT - 3.0) * 0.5 * intensity;
+                targetPose[14].rotation.z = 0.2; 
+                targetPose[15].rotation.y = Math.sin(fastT - 3.5) * 0.6 * intensity;
+
+                const vibration = Math.sin(fastT) * 0.02 * intensity;
+                targetPose[6].rotation.z = 0.1 + vibration; targetPose[7].rotation.z = -0.1 - vibration;
+                targetPose[8].rotation.z = 0.1 - vibration; targetPose[9].rotation.z = -0.1 + vibration;
+                targetPose[10].rotation.z = 0.1 + vibration; targetPose[11].rotation.z = 0.1 - vibration;
+                targetPose[12].rotation.z = 0.1 - vibration; targetPose[13].rotation.z = 0.1 + vibration;
+
+            } else if (mode === 'sleep') {
+                const t = time * 0.6; 
+                const breath = Math.sin(t);
+                
+                targetPose[1].position.y = -0.75 + breath * 0.015; 
+                targetPose[1].rotation.x = 0.15; targetPose[1].rotation.z = -0.05; 
+                
+                targetPose[4].rotation.z = -0.75 + breath * 0.02; targetPose[4].rotation.x = 0.1; 
+                targetPose[5].rotation.z = 0.3; targetPose[5].rotation.x = -0.1; 
+                
+                targetPose[6].rotation.z = 1.2; targetPose[7].rotation.z = -2.6; 
+                targetPose[8].rotation.z = 1.4;  targetPose[9].rotation.z = -2.6;
+                
+                targetPose[10].rotation.z = -1.2; targetPose[11].rotation.z = 2.6; 
+                targetPose[12].rotation.z = -1.4; targetPose[13].rotation.z = 2.6;
+                
+                targetPose[14].rotation.z = -0.1;
+                targetPose[14].rotation.y = 0.2 + breath * 0.01;
+                targetPose[15].rotation.z = 0.1;
+
+            } else if (mode === 'idle') {
+                const t = time * 0.5;
+                
+                targetPose[4].rotation.z = -0.4 + Math.sin(t) * 0.02; 
+                targetPose[5].rotation.z = Math.sin(t * 0.6) * 0.03;  
+                
+                const shakeTrigger = Math.sin(t * 1.3) * Math.sin(t * 1.7);
+                if (shakeTrigger > 0.8) {
+                    targetPose[4].rotation.x = Math.sin(time * 15) * 0.1 * (shakeTrigger - 0.8) * 5; 
+                    targetPose[5].rotation.x = Math.sin(time * 15) * 0.15 * (shakeTrigger - 0.8) * 5;
+                } else {
+                    targetPose[4].rotation.x = 0; targetPose[5].rotation.x = 0;
+                }
+                
+                const flickTrigger = Math.sin(t * 1.1) * Math.sin(t * 2.3);
+                if (flickTrigger > 0.7) {
+                    targetPose[14].rotation.y = Math.sin(time * 20) * 0.4 * (flickTrigger - 0.7) * 3;
+                    targetPose[15].rotation.y = Math.sin(time * 20 - 1) * 0.3 * (flickTrigger - 0.7) * 3;
+                } else {
+                    targetPose[14].rotation.y = Math.sin(t * 0.8) * 0.08;
+                    targetPose[15].rotation.y = Math.sin(t * 0.8 - 0.5) * 0.05;
+                }
+                
+                const footTrigger = Math.sin(t * 0.9) * Math.sin(t * 1.4);
+                if (footTrigger > 0.85) {
+                    const liftAmount = (footTrigger - 0.85) * 6.66; 
+                    targetPose[8].rotation.z = -0.3 * liftAmount; targetPose[9].rotation.z = -0.6 * liftAmount; 
+                } else {
+                    targetPose[8].rotation.z = 0; targetPose[9].rotation.z = 0;
+                }
+
+                targetPose[6].rotation.z = 0; targetPose[7].rotation.z = 0;
+                targetPose[10].rotation.z = 0; targetPose[11].rotation.z = 0;
+                targetPose[12].rotation.z = 0; targetPose[13].rotation.z = 0;
+                targetPose[1].position.y = 0; targetPose[1].rotation.z = 0;
+                targetPose[14].rotation.z = 0;
+            }
+        }
+
+        window.onload = function() {
+            init();
+            animate();
+        };
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isPaused) {
+                renderer.render(scene, camera);
+                return;
+            }
+
+            const now = Date.now();
+            const time = now * 0.004;
+            let dt = (now - lastTime) / 1000;
+            lastTime = now;
+            
+            if (dt > 0.1) dt = 0.1;
+
+            if (currentLocation === 'barn') {
+                grassTufts.forEach(grass => {
+                    if (grass.growth < 1.0) {
+                        grass.growth += dt * 0.025; 
+                        if (grass.growth > 1.0) grass.growth = 1.0;
+                        const s = Math.max(0.01, grass.growth); 
+                        grass.mesh.scale.set(s, s, s);
+                    }
+                });
+            }
+
+            updateDayNightCycle();
+
+            // --- MINI GAME TIMER LOGIC ---
+            if (gameActive && currentLocation === 'course') {
+                timeRemaining -= dt;
+                if (timeRemaining <= 0) {
+                    endMiniGame();
+                } else {
+                    updateHUD();
+                    
+                    // Score bounds checking exclusively for Alpha Horse (horses[0])
+                    const mainHorse = horses[0];
+                    // Only score points if we successfully cleared a hurdle at a proper jump height
+                    if (mainHorse.isJumping && mainHorse.mesh.position.y >= 2.3) {
+                        const hx = mainHorse.mesh.position.x;
+                        const hz = mainHorse.mesh.position.z;
+                        
+                        hurdlesData.forEach(hurdle => {
+                            const dist = Math.sqrt(Math.pow(hx - hurdle.x, 2) + Math.pow(hz - hurdle.z, 2));
+                            if (dist < hurdle.radius && (now - hurdle.lastCleared > 2000)) {
+                                score += 10;
+                                hurdle.lastCleared = now;
+                                
+                                const scoreEl = document.getElementById('score-display');
+                                scoreEl.classList.add('score-bump');
+                                setTimeout(() => scoreEl.classList.remove('score-bump'), 300);
+                            }
+                        });
+                    }
+                }
+            }
+
+            // --- HERD UPDATE LOOP ---
+            horses.forEach((h, index) => {
+                const isMainHorse = (index === 0);
+
+                // Alpha Horse Logic (Player Controlled)
+                if (isMainHorse && isPlayerMode) {
+                    if (currentLocation === 'barn') {
+                        if (joyVector.length() === 0 && !h.isJumping) {
+                            playerIdleTime += dt;
+                            if (playerIdleTime > 5.0) {
+                                isPlayerMode = false;
+                                h.aiState = 'idle';
+                                h.aiTimer = 1.0;
+                            }
+                        } else {
+                            playerIdleTime = 0;
+                        }
+                    }
+
+                    const maxSpeed = 12.0; 
+                    const targetSpeed = joyVector.y * maxSpeed; 
+                    
+                    h.playerSpeed += (targetSpeed - h.playerSpeed) * Math.min(1.0, 5.0 * dt); 
+                    h.playerTurnSpeed = -joyVector.x * 2.5;
+                    
+                    if (Math.abs(h.playerSpeed) > 0.1 || h.isJumping) {
+                        h.mesh.rotation.y += h.playerTurnSpeed * dt;
+                        const forward = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0,1,0), h.mesh.rotation.y);
+                        h.mesh.position.addScaledVector(forward, h.playerSpeed * dt);
+                    }
+
+                    if (h.isJumping) {
+                        h.mesh.position.y += h.jumpVelocity * dt;
+                        h.jumpVelocity += gravity * dt;
+                        
+                        if (h.mesh.position.y <= BASE_Y) {
+                            h.mesh.position.y = BASE_Y;
+                            h.isJumping = false;
+                            h.jumpVelocity = 0;
+                        }
+                    }
+
+                    if (h.isJumping) {
+                        h.changeAnimation('jump');
+                    } else if (h.playerSpeed > 8.0) {
+                        h.changeAnimation('gallop');
+                    } else if (h.playerSpeed > 3.0) {
+                        h.changeAnimation('canter');
+                    } else if (Math.abs(h.playerSpeed) > 0.1) {
+                        h.changeAnimation('walk');
+                    } else {
+                        h.changeAnimation('idle');
+                    }
+
+                    controls.target.lerp(h.mesh.position, Math.min(1.0, 5.0 * dt));
+                    if (Math.abs(h.playerSpeed) > 0.1 || h.isJumping) {
+                        const idealOffset = new THREE.Vector3(-8, 4, 0).applyAxisAngle(new THREE.Vector3(0,1,0), h.mesh.rotation.y);
+                        const idealPos = h.mesh.position.clone().add(idealOffset);
+                        camera.position.lerp(idealPos, Math.min(1.0, 2.0 * dt));
+                    }
+                } 
+                // Herd Logic (Autonomous AI)
+                else {
+                    const isNight = timeOfDay >= 19.5 || timeOfDay < 5.5;
+                    h.horseHunger += dt * 2.5; 
+
+                    if (h.aiState === 'idle') {
+                        h.aiTimer -= dt;
+                        
+                        if (h.animationMode === 'eat') {
+                            h.horseHunger -= dt * 15.0; 
+                            if (h.horseHunger < 0) h.horseHunger = 0;
+                            
+                            // Let anyone eat from the trough
+                            if (h.aiTarget.equals(troughPosition) && hayGroup) {
+                                hayLevel -= dt * 0.05; 
+                                if (hayLevel < 0) hayLevel = 0;
+                                hayGroup.scale.y = Math.max(0.01, hayLevel);
+                                
+                                if (hayLevel === 0 && h.horseHunger > 0) {
+                                    h.aiTimer = 0; 
+                                }
+                            }
+                        }
+
+                        if (h.aiTimer <= 0) {
+                            if (isNight) {
+                                if (h.animationMode !== 'sleep') {
+                                    h.changeAnimation('sleep');
+                                }
+                                h.aiTimer = 5.0; 
+                            } else if (h.horseHunger > 75) {
+                                const troughHasFood = hayLevel > 0.1;
+                                const validGrass = grassTufts.filter(g => Math.abs(g.position.x) < 7 && Math.abs(g.position.z) < 7 && g.growth > 0.8);
+                                
+                                let choseFood = false;
+                                h.aiTargetGrass = null;
+
+                                if (troughHasFood && validGrass.length > 0) {
+                                    if (Math.random() > 0.5) {
+                                        h.aiTarget.copy(troughPosition); choseFood = true;
+                                    } else {
+                                        h.aiTargetGrass = validGrass[Math.floor(Math.random() * validGrass.length)];
+                                        let dir = new THREE.Vector3().subVectors(h.mesh.position, h.aiTargetGrass.position);
+                                        if (dir.lengthSq() < 0.001) dir.set(1, 0, 0);
+                                        h.aiTarget.copy(h.aiTargetGrass.position).addScaledVector(dir.normalize(), 1.5);
+                                        choseFood = true;
+                                    }
+                                } else if (troughHasFood) {
+                                    h.aiTarget.copy(troughPosition); choseFood = true;
+                                } else if (validGrass.length > 0) {
+                                    h.aiTargetGrass = validGrass[Math.floor(Math.random() * validGrass.length)];
+                                    let dir = new THREE.Vector3().subVectors(h.mesh.position, h.aiTargetGrass.position);
+                                    if (dir.lengthSq() < 0.001) dir.set(1, 0, 0);
+                                    h.aiTarget.copy(h.aiTargetGrass.position).addScaledVector(dir.normalize(), 1.5);
+                                    choseFood = true;
+                                }
+
+                                if (choseFood) {
+                                    const dx = h.aiTarget.x - h.mesh.position.x;
+                                    const dz = h.aiTarget.z - h.mesh.position.z;
+                                    h.aiTargetAngle = Math.atan2(-dz, dx);
+                                    h.aiState = 'turning'; h.changeAnimation('walk');
+                                } else {
+                                    const wanderLimit = (barnFenceSize - 2) * 2;
+                                    const rx = (Math.random() - 0.5) * wanderLimit; 
+                                    const rz = (Math.random() - 0.5) * wanderLimit;
+                                    h.aiTarget.set(rx, BASE_Y, rz);
+                                    const dx = h.aiTarget.x - h.mesh.position.x; const dz = h.aiTarget.z - h.mesh.position.z;
+                                    h.aiTargetAngle = Math.atan2(-dz, dx);
+                                    h.aiState = 'turning'; h.changeAnimation('walk');
+                                }
+
+                            } else {
+                                const wanderLimit = (barnFenceSize - 2) * 2;
+                                const rx = (Math.random() - 0.5) * wanderLimit; 
+                                const rz = (Math.random() - 0.5) * wanderLimit;
+                                h.aiTarget.set(rx, BASE_Y, rz);
+                                const dx = h.aiTarget.x - h.mesh.position.x; const dz = h.aiTarget.z - h.mesh.position.z;
+                                h.aiTargetAngle = Math.atan2(-dz, dx);
+                                h.aiState = 'turning'; h.changeAnimation('walk');
+                            }
+                        }
+                    } else if (h.aiState === 'turning') {
+                        let diff = h.aiTargetAngle - h.mesh.rotation.y;
+                        while (diff < -Math.PI) diff += Math.PI * 2;
+                        while (diff > Math.PI) diff -= Math.PI * 2;
+                        
+                        if (Math.abs(diff) < 0.05) {
+                            h.mesh.rotation.y = h.aiTargetAngle; h.aiState = 'walking';
+                        } else {
+                            h.mesh.rotation.y += Math.sign(diff) * Math.min(3.0 * dt, Math.abs(diff));
+                        }
+                    } else if (h.aiState === 'walking') {
+                        const dist = h.mesh.position.distanceTo(h.aiTarget);
+                        const moveAmt = 1.8 * dt; 
+                        
+                        if (dist <= moveAmt) {
+                            h.mesh.position.copy(h.aiTarget);
+                            h.aiState = 'idle';
+                            
+                            if (isNight) {
+                                h.changeAnimation('sleep'); h.aiTimer = 10.0;
+                            } else if (h.horseHunger > 75) {
+                                if (h.aiTarget.equals(troughPosition)) {
+                                    h.mesh.rotation.y = -Math.PI / 2; 
+                                } else if (h.aiTargetGrass) {
+                                    h.aiTargetGrass.growth = 0.01; h.aiTargetGrass.mesh.scale.set(0.01, 0.01, 0.01); h.aiTargetGrass = null;
+                                }
+                                h.changeAnimation('eat'); h.aiTimer = 8.0 + Math.random() * 4.0;
+                            } else {
+                                const randAnim = Math.random();
+                                if (randAnim > 0.90) {
+                                    h.changeAnimation('rear'); h.aiTimer = 2.0 + Math.random() * 1.5; 
+                                } else if (randAnim > 0.80) {
+                                    h.changeAnimation('shake'); h.aiTimer = 2.0 + Math.random() * 1.0; 
+                                } else {
+                                    h.changeAnimation('idle'); h.aiTimer = 3.0 + Math.random() * 6.0; 
+                                }
+                            }
+                        } else {
+                            h.mesh.translateX(moveAmt);
+                        }
+                    }
+                    
+                    if (isMainHorse && !isPlayerMode) {
+                        controls.target.lerp(h.mesh.position, Math.min(1.0, 1.0 * dt));
+                    }
+                } // End AI Logic
+
+                // Blending and applying calculated animations
+                if (h.transitionWeight < 1.0) {
+                    h.transitionWeight += 0.035; 
+                    if (h.transitionWeight > 1.0) h.transitionWeight = 1.0;
+                }
+
+                const ease = h.transitionWeight * h.transitionWeight * (3 - 2 * h.transitionWeight); 
+
+                if (h.transitionWeight < 1.0) {
+                    computePose(h.previousMode, time, h.prevPose, h.basePositions);
+                    computePose(h.animationMode, time, h.currPose, h.basePositions);
+
+                    for (let i = 0; i < 16; i++) {
+                        h.bones[i].position.lerpVectors(h.prevPose[i].position, h.currPose[i].position, ease);
+                        tempQuat1.setFromEuler(h.prevPose[i].rotation);
+                        tempQuat2.setFromEuler(h.currPose[i].rotation);
+                        tempQuat1.slerp(tempQuat2, ease);
+                        h.bones[i].setRotationFromQuaternion(tempQuat1);
+                    }
+                } else {
+                    computePose(h.animationMode, time, h.currPose, h.basePositions);
+                    for (let i = 0; i < 16; i++) {
+                        h.bones[i].position.copy(h.currPose[i].position);
+                        h.bones[i].rotation.copy(h.currPose[i].rotation);
+                    }
+                }
+            });
+
+            // --- HERD SEPARATION, BOUNDARY CLAMPING & JUMP COLLISIONS ---
+            for (let i = 0; i < horses.length; i++) {
+                const h = horses[i];
+                
+                // 1. Swarm Separation (Boids)
+                for (let j = i + 1; j < horses.length; j++) {
+                    const h2 = horses[j];
+                    const distSq = h.mesh.position.distanceToSquared(h2.mesh.position);
+                    const minSep = 2.0; 
+                    if (distSq < minSep * minSep && distSq > 0.0001) {
+                        const dist = Math.sqrt(distSq);
+                        const push = new THREE.Vector3().subVectors(h.mesh.position, h2.mesh.position).normalize();
+                        const pushForce = (minSep - dist) * 0.5; 
+                        h.mesh.position.addScaledVector(push, pushForce);
+                        h2.mesh.position.addScaledVector(push, -pushForce);
+                    }
+                }
+
+                // 2. Hurdle Collision Detection (Course-only physics block)
+                if (currentLocation === 'course') {
+                    hurdlesData.forEach(hurdle => {
+                        const dx = h.mesh.position.x - hurdle.x;
+                        const dz = h.mesh.position.z - hurdle.z;
+                        
+                        // Rotate back into local hurdle space
+                        const cosR = Math.cos(-hurdle.rotation);
+                        const sinR = Math.sin(-hurdle.rotation);
+                        const localX = dx * cosR - dz * sinR;
+                        const localZ = dx * sinR + dz * cosR;
+                        
+                        // Pole dimensions: local X spans -2.5 to 2.5. Stands are 0.3. Horse clearance is 1.0.
+                        const toleranceX = 2.8; 
+                        const toleranceZ = 0.8; 
+                        
+                        if (Math.abs(localX) < toleranceX && Math.abs(localZ) < toleranceZ) {
+                            // Checked bounds! Check height clearance (Needs 2.3m minimum to glide over)
+                            const clearHeight = 2.3;
+                            if (h.mesh.position.y < clearHeight) {
+                                // Stop speed (bounce back slightly)
+                                if (i === 0) h.playerSpeed = -1.5; 
+                                
+                                // Push back along local Z axis out of the hurdle
+                                const pushSign = Math.sign(localZ);
+                                const pushDist = (toleranceZ - Math.abs(localZ)) * pushSign;
+                                
+                                const worldPushX = pushDist * Math.sin(hurdle.rotation);
+                                const worldPushZ = pushDist * Math.cos(hurdle.rotation);
+                                
+                                h.mesh.position.x += worldPushX;
+                                h.mesh.position.z += worldPushZ;
+                            }
+                        }
+                    });
+                }
+                
+                // 3. Keep within paddock fence bounds
+                const boundX = (currentLocation === 'barn') ? barnFenceSize - 1.5 : 20.5;
+                const boundZ = (currentLocation === 'barn') ? barnFenceSize - 1.5 : 20.5;
+                h.mesh.position.x = Math.max(-boundX, Math.min(boundX, h.mesh.position.x));
+                h.mesh.position.z = Math.max(-boundZ, Math.min(boundZ, h.mesh.position.z));
+            }
+
+            // Smoothly animate the Barn Doors (only if they exist/are in the active scene)
+            if (currentLocation === 'barn') {
+                if (leftBarnDoor && rightBarnDoor) {
+                    const targetLeftRot = barnDoorsOpen ? -Math.PI / 1.8 : 0;
+                    const targetRightRot = barnDoorsOpen ? Math.PI / 1.8 : 0;
+                    leftBarnDoor.rotation.y += (targetLeftRot - leftBarnDoor.rotation.y) * 0.08;
+                    rightBarnDoor.rotation.y += (targetRightRot - rightBarnDoor.rotation.y) * 0.08;
+                }
+                if (fenceGate) {
+                    const targetGateRot = gateOpen ? -Math.PI / 1.6 : 0;
+                    fenceGate.rotation.y += (targetGateRot - fenceGate.rotation.y) * 0.08;
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

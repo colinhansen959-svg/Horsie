@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Horsies are AWESOME</title>
+    <title>Horsies are AWESOME!</title>
     <style>
         body {
             margin: 0;
@@ -363,15 +363,15 @@
         // Day/Night Atmospheric Color Palette
         const colorDaySky = new THREE.Color(0x87ceeb);
         const colorSunsetSky = new THREE.Color(0xff7e47);
-        const colorNightSky = new THREE.Color(0x050a14);
+        const colorNightSky = new THREE.Color(0x0a1428); // Brighter night sky
 
         const colorSunLight = new THREE.Color(0xffffff);
         const colorSunsetLight = new THREE.Color(0xff8c00);
-        const colorMoonLight = new THREE.Color(0x7788aa);
+        const colorMoonLight = new THREE.Color(0x99aabb); // Brighter moon
 
         const colorDayAmbient = new THREE.Color(0xffffff);
         const colorSunsetAmbient = new THREE.Color(0x886655);
-        const colorNightAmbient = new THREE.Color(0x112244);
+        const colorNightAmbient = new THREE.Color(0x223355); // Brighter ambient
 
         // --- CORE HORSE FACTORY ---
         // Generates isolated geometry specific to each horse's colors
@@ -526,6 +526,9 @@
         const grassTufts = []; 
         // Offset trough target by 1.5 units so the head reaches the food, not the body!
         let troughPosition = new THREE.Vector3(3.0, BASE_Y, barnFenceSize - 2.3); 
+
+        // Keyboard Controls State
+        const keys = { w: false, a: false, s: false, d: false, space: false };
 
         window.setMobileControlsVisibility = function(visible) {
             const joystick = document.getElementById('joystick-zone');
@@ -799,8 +802,8 @@
                 const tx = -ovalA * Math.sin(theta);
                 const tz = ovalB * Math.cos(theta);
                 
-                // Angle to align hurdle perpendicular to track path
-                const rotY = Math.atan2(-tz, tx);
+                // Angle to align hurdle perfectly perpendicular to track path
+                const rotY = Math.atan2(tx, tz);
                 
                 createHurdle(hx, hz, rotY, envCourse);
             }
@@ -838,6 +841,20 @@
 
             setupMobileControls();
             setupPauseMenu();
+
+            // Keyboard Listeners
+            window.addEventListener('keydown', (e) => {
+                if (isPaused) return;
+                const key = e.key.toLowerCase();
+                if (keys.hasOwnProperty(key)) keys[key] = true;
+                if (e.code === 'Space') keys.space = true;
+            });
+
+            window.addEventListener('keyup', (e) => {
+                const key = e.key.toLowerCase();
+                if (keys.hasOwnProperty(key)) keys[key] = false;
+                if (e.code === 'Space') keys.space = false;
+            });
 
             window.addEventListener('resize', onWindowResize, false);
             renderer.domElement.addEventListener('pointerdown', onPointerDown, false);
@@ -1409,7 +1426,11 @@
         }
 
         function updateDayNightCycle() {
-            timeOfDay += timeSpeed;
+            // Days are normal speed, nights progress twice as fast
+            const isDayCheck = timeOfDay >= 6 && timeOfDay < 18;
+            const currentSpeed = isDayCheck ? timeSpeed : timeSpeed * 2.0; 
+            
+            timeOfDay += currentSpeed;
             if (timeOfDay >= 24) timeOfDay -= 24;
 
             const isDay = timeOfDay >= 6 && timeOfDay < 18;
@@ -1441,7 +1462,7 @@
                 currentSky.copy(colorSunsetSky).lerp(colorNightSky, 1.0 - twilight);
                 currentLight.copy(colorSunsetLight).lerp(colorMoonLight, 1.0 - twilight);
                 currentAmbient.copy(colorSunsetAmbient).lerp(colorNightAmbient, 1.0 - twilight);
-                lightIntensity = 0.3 * (1.0 - (twilight * 0.5)); 
+                lightIntensity = 0.5 * (1.0 - (twilight * 0.5)); // Increased night brightness
             }
 
             const horizonFade = Math.min(1.0, h * 10.0); 
@@ -1452,8 +1473,8 @@
             dirLight.color.copy(currentLight);
             dirLight.intensity = lightIntensity;
             ambientLight.color.copy(currentAmbient);
-            ambientLight.intensity = isDay ? 0.5 : 0.2;
-            fillLight.intensity = isDay ? 0.3 : 0.05;
+            ambientLight.intensity = isDay ? 0.5 : 0.35; // Increased night ambient
+            fillLight.intensity = isDay ? 0.3 : 0.15; // Increased night fill
 
             if (stars) {
                 stars.material.opacity = isDay ? 0 : Math.min(1.0, (1.0 - twilight) * 1.5) * horizonFade; 
@@ -1737,6 +1758,12 @@
                 }
             }
 
+            // Detect keyboard input to trigger player override
+            if (keys.w || keys.a || keys.s || keys.d || keys.space) {
+                isPlayerMode = true;
+                playerIdleTime = 0;
+            }
+
             // --- HERD UPDATE LOOP ---
             horses.forEach((h, index) => {
                 const isMainHorse = (index === 0);
@@ -1744,7 +1771,7 @@
                 // Alpha Horse Logic (Player Controlled)
                 if (isMainHorse && isPlayerMode) {
                     if (currentLocation === 'barn') {
-                        if (joyVector.length() === 0 && !h.isJumping) {
+                        if (joyVector.length() === 0 && !h.isJumping && !(keys.w || keys.a || keys.s || keys.d)) {
                             playerIdleTime += dt;
                             if (playerIdleTime > 5.0) {
                                 isPlayerMode = false;
@@ -1756,11 +1783,36 @@
                         }
                     }
 
+                    // Calculate combined input from joystick and keyboard
+                    let inputX = joyVector.x;
+                    let inputY = joyVector.y;
+
+                    if (inputX === 0 && inputY === 0) {
+                        if (keys.w) inputY = 1;
+                        if (keys.s) inputY = -1;
+                        if (keys.a) inputX = -1;
+                        if (keys.d) inputX = 1;
+                        
+                        // Normalize diagonal keyboard movement
+                        if (inputX !== 0 && inputY !== 0) {
+                            inputX *= 0.7071;
+                            inputY *= 0.7071;
+                        }
+                    }
+
+                    if (keys.space && !h.isJumping) {
+                        h.isJumping = true;
+                        h.jumpVelocity = 10.0;
+                        h.changeAnimation('jump');
+                        keys.space = false; // Prevent holding to auto-jump
+                    }
+
                     const maxSpeed = 12.0; 
-                    const targetSpeed = joyVector.y * maxSpeed; 
+                    const targetSpeed = inputY * maxSpeed; 
                     
+                    // CRITICAL FIX: Clamp lerp alphas to 1.0 maximum so they never overshoot into Infinity
                     h.playerSpeed += (targetSpeed - h.playerSpeed) * Math.min(1.0, 5.0 * dt); 
-                    h.playerTurnSpeed = -joyVector.x * 2.5;
+                    h.playerTurnSpeed = -inputX * 2.5;
                     
                     if (Math.abs(h.playerSpeed) > 0.1 || h.isJumping) {
                         h.mesh.rotation.y += h.playerTurnSpeed * dt;
@@ -1836,7 +1888,7 @@
                                 h.aiTargetGrass = null;
 
                                 if (troughHasFood && validGrass.length > 0) {
-                                    if (Math.random() > 0.5) {
+                                    if (Math.random() < 0.8) { // 80% chance to prefer the trough
                                         h.aiTarget.copy(troughPosition); choseFood = true;
                                     } else {
                                         h.aiTargetGrass = validGrass[Math.floor(Math.random() * validGrass.length)];
@@ -1860,6 +1912,7 @@
                                     const dz = h.aiTarget.z - h.mesh.position.z;
                                     h.aiTargetAngle = Math.atan2(-dz, dx);
                                     h.aiState = 'turning'; h.changeAnimation('walk');
+                                    h.aiTimer = 15.0; // Failsafe timeout to prevent infinite walking
                                 } else {
                                     const wanderLimit = (barnFenceSize - 2) * 2;
                                     const rx = (Math.random() - 0.5) * wanderLimit; 
@@ -1868,6 +1921,7 @@
                                     const dx = h.aiTarget.x - h.mesh.position.x; const dz = h.aiTarget.z - h.mesh.position.z;
                                     h.aiTargetAngle = Math.atan2(-dz, dx);
                                     h.aiState = 'turning'; h.changeAnimation('walk');
+                                    h.aiTimer = 15.0; // Failsafe timeout to prevent infinite walking
                                 }
 
                             } else {
@@ -1878,29 +1932,37 @@
                                 const dx = h.aiTarget.x - h.mesh.position.x; const dz = h.aiTarget.z - h.mesh.position.z;
                                 h.aiTargetAngle = Math.atan2(-dz, dx);
                                 h.aiState = 'turning'; h.changeAnimation('walk');
+                                h.aiTimer = 15.0; // Failsafe timeout to prevent infinite walking
                             }
                         }
                     } else if (h.aiState === 'turning') {
+                        h.aiTimer -= dt;
                         let diff = h.aiTargetAngle - h.mesh.rotation.y;
                         while (diff < -Math.PI) diff += Math.PI * 2;
                         while (diff > Math.PI) diff -= Math.PI * 2;
                         
-                        if (Math.abs(diff) < 0.05) {
+                        if (Math.abs(diff) < 0.05 || h.aiTimer <= 0) {
                             h.mesh.rotation.y = h.aiTargetAngle; h.aiState = 'walking';
+                            if (h.aiTimer <= 0) h.aiTimer = 15.0; // Reset timer for walking phase
                         } else {
                             h.mesh.rotation.y += Math.sign(diff) * Math.min(3.0 * dt, Math.abs(diff));
                         }
                     } else if (h.aiState === 'walking') {
+                        h.aiTimer -= dt;
                         const dist = h.mesh.position.distanceTo(h.aiTarget);
                         const moveAmt = 1.8 * dt; 
                         
-                        if (dist <= moveAmt) {
-                            h.mesh.position.copy(h.aiTarget);
+                        // Stop if we reached the target OR if we timed out (were blocked)
+                        if (dist <= moveAmt || h.aiTimer <= 0) {
+                            let reachedTarget = (dist <= moveAmt);
+                            if (reachedTarget) h.mesh.position.copy(h.aiTarget);
+                            
                             h.aiState = 'idle';
                             
                             if (isNight) {
                                 h.changeAnimation('sleep'); h.aiTimer = 10.0;
-                            } else if (h.horseHunger > 75) {
+                            // Only trigger eating if they actually successfully reached the food target!
+                            } else if (h.horseHunger > 75 && reachedTarget) {
                                 if (h.aiTarget.equals(troughPosition)) {
                                     h.mesh.rotation.y = -Math.PI / 2; 
                                 } else if (h.aiTargetGrass) {

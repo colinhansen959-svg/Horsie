@@ -2110,26 +2110,45 @@
                         const localX = dx * cosR - dz * sinR;
                         const localZ = dx * sinR + dz * cosR;
                         
-                        // Pole dimensions: local X spans -2.5 to 2.5. Stands are 0.3. Horse clearance is 1.0.
+                        // Pole dimensions: local X spans -2.5 to 2.5. Stands are 0.3.
                         const toleranceX = 2.8; 
-                        const toleranceZ = 0.8; 
+                        
+                        // INCREASED from 0.8 to 1.4 to account for the horse's head/body length
+                        // This stops the horse from walking halfway into the jump!
+                        const toleranceZ = 1.4; 
                         
                         if (Math.abs(localX) < toleranceX && Math.abs(localZ) < toleranceZ) {
                             // Checked bounds! Check height clearance (Needs 2.3m minimum to glide over)
                             const clearHeight = 2.3;
                             if (h.mesh.position.y < clearHeight) {
-                                // Stop speed (bounce back slightly)
-                                if (i === 0) h.playerSpeed = -1.5; 
                                 
-                                // Push back along local Z axis out of the hurdle
-                                const pushSign = Math.sign(localZ);
-                                const pushDist = (toleranceZ - Math.abs(localZ)) * pushSign;
+                                // Calculate penetration depths
+                                const penX = toleranceX - Math.abs(localX);
+                                const penZ = toleranceZ - Math.abs(localZ);
                                 
-                                const worldPushX = pushDist * Math.sin(hurdle.rotation);
-                                const worldPushZ = pushDist * Math.cos(hurdle.rotation);
+                                let pushLocalX = 0;
+                                let pushLocalZ = 0;
+                                
+                                // Push out along the shallowest penetration axis to prevent getting stuck
+                                if (penZ < penX) {
+                                    pushLocalZ = penZ * (localZ >= 0 ? 1 : -1);
+                                } else {
+                                    pushLocalX = penX * (localX >= 0 ? 1 : -1);
+                                }
+                                
+                                // Convert local push vector back to world coordinates
+                                const cosW = Math.cos(hurdle.rotation);
+                                const sinW = Math.sin(hurdle.rotation);
+                                
+                                const worldPushX = pushLocalX * cosW - pushLocalZ * sinW;
+                                const worldPushZ = pushLocalX * sinW + pushLocalZ * cosW;
                                 
                                 h.mesh.position.x += worldPushX;
                                 h.mesh.position.z += worldPushZ;
+                                
+                                // FIX STUTTERING: Smoothly reduce speed instead of violently reversing it
+                                // This prevents the crazy vibration when landing on top of the jump.
+                                if (i === 0) h.playerSpeed *= 0.5; 
                             }
                         }
                     });

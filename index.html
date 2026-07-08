@@ -162,7 +162,7 @@
             background: #a06b35;
         }
 
-        /* --- NEW: Shop UI --- */
+        /* --- Shop UI --- */
         #shop-screen {
             position: absolute;
             top: 0;
@@ -242,6 +242,121 @@
         .buy-btn:active { transform: scale(0.95); }
         .buy-btn:disabled { background: #666; color: #aaa; cursor: not-allowed; border-color: #888; }
 
+        /* --- Stable UI --- */
+        #stable-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.2); /* Very transparent so you can see the farm */
+            backdrop-filter: none; 
+            z-index: 40;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end; /* Pin to bottom */
+            padding-bottom: 5vh;
+            color: white;
+            pointer-events: none; /* Crucial: Lets you spin the 3D camera behind the menu! */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+        }
+
+        #stable-screen.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #stable-screen h1 {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 3rem;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            color: #17a2b8;
+            pointer-events: auto;
+        }
+        
+        #close-stable-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            margin: 0;
+            pointer-events: auto;
+        }
+
+        #stable-grid {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 15px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            width: 95%;
+            max-width: 1200px;
+            padding: 20px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.2);
+            pointer-events: auto;
+        }
+
+        #stable-grid::-webkit-scrollbar { height: 10px; }
+        #stable-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.5); border-radius: 5px; }
+
+        .stable-item {
+            background: rgba(0,0,0,0.5);
+            border: 2px solid rgba(255,255,255,0.3);
+            padding: 15px;
+            border-radius: 10px;
+            width: 180px;
+            min-width: 180px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .stable-item.preview-active {
+            border-color: #17a2b8;
+            box-shadow: 0 0 15px rgba(23, 162, 184, 0.5);
+        }
+
+        .horse-name-input {
+            width: 85%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: none;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #333;
+            background: #f0f0f0;
+        }
+
+        /* --- Hologram Overlay --- */
+        #hologram-overlay {
+            position: absolute;
+            background: rgba(0, 200, 255, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 18px;
+            pointer-events: none;
+            transform: translate(-50%, -100%);
+            display: none;
+            z-index: 20;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+
         /* --- Mini-Game HUD UI --- */
         #minigame-hud {
             position: absolute;
@@ -303,7 +418,6 @@
         <div id="joystick-zone" style="display: none;">
             <div id="joystick-knob"></div>
         </div>
-        <!-- Jump button starts hidden via inline style -->
         <div id="jump-btn" style="display: none;">JUMP</div>
         <!-- Pause Button in top right -->
         <div id="pause-btn">⏸</div>
@@ -316,6 +430,7 @@
         <button id="resume-btn" class="menu-btn">Resume</button>
         <button id="switch-scene-btn" class="menu-btn">Go to Jumping Course</button>
         <button id="open-shop-btn" class="menu-btn" style="background: #28a745;">Open Shop</button>
+        <button id="open-stable-btn" class="menu-btn" style="background: #17a2b8;">My Stable</button>
     </div>
 
     <!-- Shop Overlay -->
@@ -329,6 +444,18 @@
 
         <button id="close-shop-btn" class="menu-btn" style="margin-top: 20px;">Back to Menu</button>
     </div>
+
+    <!-- Stable Overlay -->
+    <div id="stable-screen">
+        <h1>MY STABLE</h1>
+        <div id="stable-grid">
+            <!-- Items injected by JS -->
+        </div>
+        <button id="close-stable-btn" class="menu-btn">Back to Menu</button>
+    </div>
+
+    <!-- Hologram Overlay -->
+    <div id="hologram-overlay">Horse Name</div>
 
     <!-- Mini Game HUD -->
     <div id="minigame-hud">
@@ -346,18 +473,17 @@
         // Day/Night Atmospheric Color Palette
         const colorDaySky = new THREE.Color(0x87ceeb);
         const colorSunsetSky = new THREE.Color(0xff7e47);
-        const colorNightSky = new THREE.Color(0x0a1428); // Brighter night sky
+        const colorNightSky = new THREE.Color(0x0a1428);
 
         const colorSunLight = new THREE.Color(0xffffff);
         const colorSunsetLight = new THREE.Color(0xff8c00);
-        const colorMoonLight = new THREE.Color(0x99aabb); // Brighter moon
+        const colorMoonLight = new THREE.Color(0x99aabb); 
 
         const colorDayAmbient = new THREE.Color(0xffffff);
         const colorSunsetAmbient = new THREE.Color(0x886655);
-        const colorNightAmbient = new THREE.Color(0x223355); // Brighter ambient
+        const colorNightAmbient = new THREE.Color(0x223355); 
 
         // --- CORE HORSE FACTORY ---
-        // Generates isolated geometry specific to each horse's colors
         function createHorseGeometry(hexBody, hexDark, hexWhite) {
             const positions = [];
             const normals = [];
@@ -477,10 +603,9 @@
         const gravity = -25.0;
         const BASE_Y = 1.27;
 
-        // --- HERD ARRAY (Holds all our horses!) ---
+        // --- HERD ARRAY ---
         const horses = [];
 
-        // Dummy target arrays for procedural blending calculations
         const tempQuat1 = new THREE.Quaternion();
         const tempQuat2 = new THREE.Quaternion();
         
@@ -511,8 +636,14 @@
         const timeSpeed = 0.002; 
         let lastTime = Date.now();
         
+        // --- Horse Tracking Variables ---
+        let mainHorseIndex = 0;
+        let selectedHorseIndex = null;
+        let previewHorseIndex = null; // Tells the camera who to look at in the Stable UI
+
         // Survival Need State
         const grassTufts = []; 
+        let troughPosition = new THREE.Vector3(3.0, BASE_Y, barnFenceSize - 2.3); 
 
         // Keyboard Controls State
         const keys = { w: false, a: false, s: false, d: false, space: false };
@@ -553,23 +684,18 @@
             { id: 'barn_blue', name: 'Blue Barn Paint', type: 'barn', value: 0x224488, cost: 50 },
             { id: 'barn_green', name: 'Green Barn Paint', type: 'barn', value: 0x2e8b57, cost: 50 },
             { id: 'barn_red', name: 'Classic Red Barn', type: 'barn', value: 0x8b0000, cost: 20 },
-            
             { id: 'silo_red', name: 'Red Silo Paint', type: 'silo', value: 0xaa3333, cost: 50 },
             { id: 'silo_white', name: 'White Silo Paint', type: 'silo', value: 0xeeeeee, cost: 50 },
-            
             { id: 'jump_blue', name: 'Blue Jump Poles', type: 'jump', value: 0x2266cc, cost: 30 },
             { id: 'jump_red', name: 'Red Jump Poles', type: 'jump', value: 0xcc2222, cost: 30 },
             { id: 'jump_wood', name: 'Wooden Jumps', type: 'jump', value: 0x8b5a2b, cost: 30 },
-            
             { id: 'trough_add_1', name: 'Add 2nd Trough', type: 'add_trough', value: {x: -3.0}, cost: 80 },
             { id: 'trough_add_2', name: 'Add 3rd Trough', type: 'add_trough', value: {x: 8.0}, cost: 120 },
             { id: 'trough_size', name: 'Large Troughs', type: 'upgrade_trough', value: null, cost: 150 },
-
             { id: 'horse_black', name: 'Black Horse', type: 'horse', value: { body: 0x333333, dark: 0x111111, white: 0x222222 }, cost: 150 },
             { id: 'horse_white', name: 'White Horse', type: 'horse', value: { body: 0xeeeeee, dark: 0xaaaaaa, white: 0xdddddd }, cost: 150 },
             { id: 'horse_chestnut', name: 'Chestnut Horse', type: 'horse', value: { body: 0x8b4513, dark: 0x3e1f04, white: 0xffffff }, cost: 150 },
             { id: 'horse_classic', name: 'Classic Tan Horse', type: 'horse', value: { body: 0xdcb073, dark: 0x222222, white: 0xeeeeee }, cost: 50 },
-            
             { id: 'upgrade_paddock', name: 'Expand Paddock (+5)', type: 'upgrade', value: null, cost: 200 }
         ];
 
@@ -583,7 +709,6 @@
                 
                 let isDisabled = money < item.cost;
                 let btnText = 'Buy';
-                // Increased max size to 35.0, allowing exactly 5 expansions (15, 20, 25, 30, 35)
                 if (item.type === 'upgrade' && barnFenceSize >= 35.0) {
                     isDisabled = true;
                     btnText = 'Maxed Out';
@@ -674,7 +799,68 @@
             updateMoneyDisplays();
         };
 
-        // --- NEW: Add Horse Function ---
+        // --- NEW: Stable Management System ---
+        function renderStableItems() {
+            const grid = document.getElementById('stable-grid');
+            grid.innerHTML = '';
+            
+            horses.forEach((h, index) => {
+                const el = document.createElement('div');
+                el.className = 'stable-item';
+                
+                // Highlight the card we are actively previewing
+                if (previewHorseIndex === index) {
+                    el.classList.add('preview-active');
+                }
+                
+                const isMain = index === mainHorseIndex;
+                const btnText = isMain ? 'Active' : 'Set as Main';
+                const btnColor = isMain ? '#666' : '#17a2b8';
+
+                // Generates a cute low poly SVG portrait based on the exact horse colors
+                el.innerHTML = `
+                    <svg viewBox="0 0 100 100" width="80" height="80" style="margin: 0 auto 10px auto; display: block; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.5));">
+                        <polygon points="10,100 30,30 45,40 25,100" fill="${h.colors.mane}" />
+                        <polygon points="20,100 40,40 70,70 50,100" fill="${h.colors.body}" />
+                        <polygon points="35,45 45,20 85,35 80,65 65,70" fill="${h.colors.body}" />
+                        <polygon points="75,31 85,35 80,65 70,68" fill="${h.colors.snout}" />
+                        <polygon points="45,20 35,5 55,15" fill="${h.colors.body}" />
+                        <rect x="55" y="30" width="6" height="6" fill="#111" transform="rotate(15 58 33)" />
+                    </svg>
+                    <input type="text" class="horse-name-input" value="${h.name}" onchange="updateHorseName(${index}, this.value)">
+                    <p style="font-size: 0.9rem; color: #ccc; margin: 0 0 10px 0;">${isMain ? 'Player Controlled' : 'In Pasture'}</p>
+                    <button class="buy-btn" style="background: ${btnColor};" ${isMain ? 'disabled' : ''} onclick="setMainHorse(${index})">${btnText}</button>
+                `;
+                
+                // Allow clicking the card to target the camera to that specific horse
+                el.addEventListener('pointerdown', (e) => {
+                    // Ignore clicks on inputs or buttons so we don't break them
+                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+                        previewHorseIndex = index;
+                        renderStableItems();
+                    }
+                });
+
+                grid.appendChild(el);
+            });
+        }
+
+        window.updateHorseName = function(index, name) {
+            if (horses[index]) horses[index].name = name;
+        };
+
+        window.setMainHorse = function(index) {
+            mainHorseIndex = index;
+            previewHorseIndex = index;
+            
+            // Interrupt whatever the new main horse was doing so we can immediately control it
+            horses[mainHorseIndex].aiState = 'idle';
+            horses[mainHorseIndex].playerSpeed = 0;
+            joyVector.set(0, 0);
+            renderStableItems();
+        };
+
+        // --- Add Horse Function ---
         function addHorse(hexBody, hexDark, hexWhite) {
             const geometry = createHorseGeometry(hexBody, hexDark, hexWhite);
             
@@ -720,20 +906,30 @@
             skinnedMesh.bind(skeleton);
             skinnedMesh.position.y = BASE_Y;
             
+            // Allow raycaster to find this horse
+            skinnedMesh.userData.isHorse = true;
+            skinnedMesh.userData.horseIndex = horses.length;
+            
             // Offset initial spawn so they don't stack on top of each other
             skinnedMesh.position.x = (Math.random() - 0.5) * 4;
             skinnedMesh.position.z = (Math.random() - 0.5) * 4;
 
             // Push an isolated state object into our global herd array
             horses.push({
+                name: "Horse " + (horses.length + 1),
+                colors: {
+                    body: '#' + hexBody.toString(16).padStart(6, '0'),
+                    mane: '#' + hexDark.toString(16).padStart(6, '0'),
+                    snout: '#' + hexWhite.toString(16).padStart(6, '0')
+                },
                 mesh: skinnedMesh,
                 bones: bones,
                 basePositions: basePositions,
                 aiState: 'idle',
-                aiTimer: 2.0 + Math.random() * 4.0, // Stagger AI timers so they act organically
+                aiTimer: 2.0 + Math.random() * 4.0, 
                 aiTarget: new THREE.Vector3(),
                 aiTargetAngle: 0,
-                horseHunger: Math.random() * 40, // Stagger hunger
+                horseHunger: Math.random() * 40, 
                 aiTargetGrass: null,
                 targetTrough: null,
                 animationMode: 'idle',
@@ -821,31 +1017,25 @@
             
             barnModel = createBarn(-20, 0, Math.PI / 2, 1.1, envBarn);
 
-            // Build Jumping Course Environment (Bigger paddock & Jumps arranged in oval shape)
-            createFence(22.0, envCourse, false); // Larger arena (44x44 meters)
+            // Build Jumping Course Environment
+            createFence(22.0, envCourse, false); 
             
             const numHurdles = 8;
-            const ovalA = 16.0; // Semi-major axis
-            const ovalB = 10.0; // Semi-minor axis
+            const ovalA = 16.0; 
+            const ovalB = 10.0; 
             for (let i = 0; i < numHurdles; i++) {
-                // Place hurdles around ellipse, offset starting theta slightly to avoid sharp apexes
                 const theta = (i / numHurdles) * Math.PI * 2 + Math.PI / 8;
                 const hx = ovalA * Math.cos(theta);
                 const hz = ovalB * Math.sin(theta);
-                
-                // Track direction/tangent
                 const tx = -ovalA * Math.sin(theta);
                 const tz = ovalB * Math.cos(theta);
-                
-                // Angle to align hurdle perfectly perpendicular to track path
                 const rotY = Math.atan2(tx, tz);
-                
                 createHurdle(hx, hz, rotY, envCourse);
             }
 
             envCourse.visible = false; 
 
-            // Spawn the primary / main horse
+            // Spawn the primary horse
             addHorse(0xdcb073, 0x222222, 0xeeeeee); 
 
             if (typeof THREE.OrbitControls === 'function') {
@@ -866,12 +1056,12 @@
                 document.getElementById('start-game-btn').style.display = 'none';
                 updateHUD();
 
-                horses[0].mesh.position.set(0, BASE_Y, 0);
-                horses[0].mesh.rotation.set(0, 0, 0);
-                horses[0].playerSpeed = 0;
+                horses[mainHorseIndex].mesh.position.set(0, BASE_Y, 0);
+                horses[mainHorseIndex].mesh.rotation.set(0, 0, 0);
+                horses[mainHorseIndex].playerSpeed = 0;
                 joyVector.set(0, 0);
-                horses[0].isJumping = false;
-                horses[0].jumpVelocity = 0;
+                horses[mainHorseIndex].isJumping = false;
+                horses[mainHorseIndex].jumpVelocity = 0;
             });
 
             setupMobileControls();
@@ -879,6 +1069,9 @@
 
             // Keyboard Listeners
             window.addEventListener('keydown', (e) => {
+                // Ignore inputs if user is typing in the horse rename box
+                if (e.target.tagName === 'INPUT') return;
+
                 if (isPaused) return;
                 const key = e.key.toLowerCase();
                 if (keys.hasOwnProperty(key)) keys[key] = true;
@@ -886,6 +1079,8 @@
             });
 
             window.addEventListener('keyup', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+
                 const key = e.key.toLowerCase();
                 if (keys.hasOwnProperty(key)) keys[key] = false;
                 if (e.code === 'Space') keys.space = false;
@@ -956,10 +1151,10 @@
                     
                     isPlayerMode = true;
                     playerIdleTime = 0;
-                    if (!horses[0].isJumping) {
-                        horses[0].isJumping = true;
-                        horses[0].jumpVelocity = 10.0; 
-                        horses[0].changeAnimation('jump');
+                    if (!horses[mainHorseIndex].isJumping) {
+                        horses[mainHorseIndex].isJumping = true;
+                        horses[mainHorseIndex].jumpVelocity = 10.0; 
+                        horses[mainHorseIndex].changeAnimation('jump');
                     }
                 });
             }
@@ -973,6 +1168,9 @@
             const openShopBtn = document.getElementById('open-shop-btn');
             const closeShopBtn = document.getElementById('close-shop-btn');
             const shopScreen = document.getElementById('shop-screen');
+            const openStableBtn = document.getElementById('open-stable-btn');
+            const closeStableBtn = document.getElementById('close-stable-btn');
+            const stableScreen = document.getElementById('stable-screen');
 
             pauseBtn.addEventListener('pointerdown', (e) => {
                 e.stopPropagation();
@@ -996,6 +1194,26 @@
             closeShopBtn.addEventListener('pointerdown', (e) => {
                 e.stopPropagation();
                 shopScreen.classList.remove('active');
+            });
+
+            openStableBtn.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                isPaused = false; // Keep game running while stable is open to watch them!
+                isPlayerMode = false; // Release player control
+                joyVector.set(0, 0); 
+                previewHorseIndex = mainHorseIndex; 
+                lastTime = Date.now();
+                renderStableItems(); 
+                pauseScreen.classList.remove('active'); // Hide pause so we see world
+                stableScreen.classList.add('active');
+            });
+
+            closeStableBtn.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                stableScreen.classList.remove('active');
+                previewHorseIndex = null;
+                isPaused = true; 
+                pauseScreen.classList.add('active');
             });
 
             switchSceneBtn.addEventListener('pointerdown', (e) => {
@@ -1030,7 +1248,7 @@
                 // Safely teleport the entire herd to the active scene
                 horses.forEach((h, index) => {
                     h.mesh.position.set((Math.random() - 0.5) * 6, BASE_Y, (Math.random() - 0.5) * 6);
-                    if (index === 0) h.mesh.position.set(0, BASE_Y, 0); // Primary horse strictly centered
+                    if (index === mainHorseIndex) h.mesh.position.set(0, BASE_Y, 0); // Primary horse strictly centered
                     h.mesh.rotation.set(0, 0, 0);
                     h.isJumping = false;
                     h.playerSpeed = 0;
@@ -1371,6 +1589,8 @@
 
         function createTrough(x, z, rotationY, parentGroup) {
             const troughGroup = new THREE.Group();
+            troughGroupRef = troughGroup; 
+
             const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, flatShading: true, roughness: 0.9 }); 
             const hayMat = new THREE.MeshStandardMaterial({ color: 0xdaa520, flatShading: true, roughness: 1.0 }); 
             const markTroughInteractable = (mesh) => { mesh.userData.interactable = 'trough'; };
@@ -1435,22 +1655,42 @@
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(scene.children, true);
 
+            let clickedHorse = false;
+            let clickedInteractable = false;
+
             for (let i = 0; i < intersects.length; i++) {
-                const interactable = intersects[i].object.userData.interactable;
+                const obj = intersects[i].object;
                 
-                if (interactable === 'barnDoor') {
-                    barnDoorsOpen = !barnDoorsOpen;
-                    break; 
-                } else if (interactable === 'gate') {
-                    gateOpen = !gateOpen;
-                    break;
-                } else if (interactable === 'trough') {
-                    troughs.forEach(t => {
-                        t.level = t.capacity;
-                        if (t.hayGroup) t.hayGroup.scale.y = 1.0;
-                    });
+                // First check if a horse was clicked
+                if (obj.userData.isHorse) {
+                    selectedHorseIndex = obj.userData.horseIndex;
+                    clickedHorse = true;
                     break;
                 }
+
+                // Check Environment Interactions
+                const interactable = obj.userData.interactable;
+                if (interactable) {
+                    clickedInteractable = true;
+                    if (interactable === 'barnDoor') {
+                        barnDoorsOpen = !barnDoorsOpen;
+                        break; 
+                    } else if (interactable === 'gate') {
+                        gateOpen = !gateOpen;
+                        break;
+                    } else if (interactable === 'trough') {
+                        troughs.forEach(t => {
+                            t.level = t.capacity;
+                            if (t.hayGroup) t.hayGroup.scale.y = 1.0;
+                        });
+                        break;
+                    }
+                }
+            }
+
+            // Clicked the empty ground, clear the hologram
+            if (!clickedHorse && !clickedInteractable) {
+                selectedHorseIndex = null;
             }
         }
 
@@ -1785,8 +2025,8 @@
                 } else {
                     updateHUD();
                     
-                    // Score bounds checking exclusively for Alpha Horse (horses[0])
-                    const mainHorse = horses[0];
+                    // Score bounds checking exclusively for active player horse
+                    const mainHorse = horses[mainHorseIndex];
                     // Only score points if we successfully cleared a hurdle at a proper jump height
                     if (mainHorse.isJumping && mainHorse.mesh.position.y >= 2.3) {
                         const hx = mainHorse.mesh.position.x;
@@ -1815,7 +2055,7 @@
 
             // --- HERD UPDATE LOOP ---
             horses.forEach((h, index) => {
-                const isMainHorse = (index === 0);
+                const isMainHorse = (index === mainHorseIndex);
 
                 // Alpha Horse Logic (Player Controlled)
                 if (isMainHorse && isPlayerMode) {
@@ -2040,8 +2280,10 @@
                         }
                     }
                     
-                    if (isMainHorse && !isPlayerMode) {
-                        controls.target.lerp(h.mesh.position, Math.min(1.0, 1.0 * dt));
+                    // Allow the camera to lock onto a selected horse from the stable menu, or default back to main horse
+                    let targetIndex = (previewHorseIndex !== null) ? previewHorseIndex : mainHorseIndex;
+                    if (index === targetIndex && !isPlayerMode) {
+                        controls.target.lerp(h.mesh.position, Math.min(1.0, 2.0 * dt));
                     }
                 } // End AI Logic
 
@@ -2137,6 +2379,7 @@
                                 }
                                 
                                 // Convert local push vector back to world coordinates
+                                // Push convert local push vector back to world coordinates
                                 const cosW = Math.cos(hurdle.rotation);
                                 const sinW = Math.sin(hurdle.rotation);
                                 
@@ -2147,8 +2390,7 @@
                                 h.mesh.position.z += worldPushZ;
                                 
                                 // FIX STUTTERING: Smoothly reduce speed instead of violently reversing it
-                                // This prevents the crazy vibration when landing on top of the jump.
-                                if (i === 0) h.playerSpeed *= 0.5; 
+                                if (i === mainHorseIndex) h.playerSpeed *= 0.5; 
                             }
                         }
                     });
@@ -2173,6 +2415,29 @@
                     const targetGateRot = gateOpen ? -Math.PI / 1.6 : 0;
                     fenceGate.rotation.y += (targetGateRot - fenceGate.rotation.y) * 0.08;
                 }
+            }
+
+            // --- HOLOGRAM UPDATE ---
+            const hologram = document.getElementById('hologram-overlay');
+            if (selectedHorseIndex !== null && horses[selectedHorseIndex]) {
+                const targetHorse = horses[selectedHorseIndex];
+                const pos = targetHorse.mesh.position.clone();
+                pos.y += 2.0; // Position above the horse's back/head
+                pos.project(camera);
+                
+                // Don't show if the horse is behind the camera
+                if (pos.z > 1) {
+                    hologram.style.display = 'none';
+                } else {
+                    const x = (pos.x * .5 + .5) * window.innerWidth;
+                    const y = (pos.y * -.5 + .5) * window.innerHeight;
+                    hologram.style.left = `${x}px`;
+                    hologram.style.top = `${y}px`;
+                    hologram.style.display = 'block';
+                    hologram.innerText = targetHorse.name;
+                }
+            } else {
+                hologram.style.display = 'none';
             }
 
             controls.update();

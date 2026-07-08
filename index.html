@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Horsies are AWESOME!</title>
+    <title>Horse Simulator</title>
     <style>
         body {
             margin: 0;
@@ -338,23 +338,6 @@
     </div>
 
     <script>
-        // Global Error Catcher
-        window.onerror = function(msg, url, lineNo, columnNo, error) {
-            const errDiv = document.createElement('div');
-            errDiv.style.position = 'absolute';
-            errDiv.style.top = '10%';
-            errDiv.style.left = '10%';
-            errDiv.style.width = '80%';
-            errDiv.style.padding = '20px';
-            errDiv.style.background = 'rgba(255,0,0,0.8)';
-            errDiv.style.color = 'white';
-            errDiv.style.zIndex = '9999';
-            errDiv.style.fontFamily = 'monospace';
-            errDiv.innerHTML = '<b>Runtime Error:</b><br>' + msg + '<br>Line: ' + lineNo;
-            document.body.appendChild(errDiv);
-            return false;
-        };
-
         // Global Materials for Shop Upgrades
         const matBarnWall = new THREE.MeshStandardMaterial({ color: 0x8b0000, flatShading: true, roughness: 0.9, side: THREE.DoubleSide });
         const matSiloBody = new THREE.MeshStandardMaterial({ color: 0xb0c4de, flatShading: true, roughness: 0.6 });
@@ -502,13 +485,19 @@
         const tempQuat2 = new THREE.Quaternion();
         
         // Environment interaction variables
-        let leftBarnDoor, rightBarnDoor, fenceGate, hayGroup;
-        let troughGroupRef; 
+        let leftBarnDoor, rightBarnDoor, fenceGate;
         let barnFenceGroup; 
         let barnFenceSize = 10.0;
         let barnDoorsOpen = false;
         let gateOpen = false;
-        let hayLevel = 1.0;
+
+        let barnModel = null;
+        const treesAndRocks = [];
+        
+        // Trough Variables
+        const troughs = [];
+        let troughSizeMultiplier = 1.0;
+        let troughCapacity = 1.0;
 
         // Mini-Game State Variables
         let gameActive = false;
@@ -524,8 +513,6 @@
         
         // Survival Need State
         const grassTufts = []; 
-        // Offset trough target by 1.5 units so the head reaches the food, not the body!
-        let troughPosition = new THREE.Vector3(3.0, BASE_Y, barnFenceSize - 2.3); 
 
         // Keyboard Controls State
         const keys = { w: false, a: false, s: false, d: false, space: false };
@@ -574,6 +561,10 @@
             { id: 'jump_red', name: 'Red Jump Poles', type: 'jump', value: 0xcc2222, cost: 30 },
             { id: 'jump_wood', name: 'Wooden Jumps', type: 'jump', value: 0x8b5a2b, cost: 30 },
             
+            { id: 'trough_add_1', name: 'Add 2nd Trough', type: 'add_trough', value: {x: -3.0}, cost: 80 },
+            { id: 'trough_add_2', name: 'Add 3rd Trough', type: 'add_trough', value: {x: 8.0}, cost: 120 },
+            { id: 'trough_size', name: 'Large Troughs', type: 'upgrade_trough', value: null, cost: 150 },
+
             { id: 'horse_black', name: 'Black Horse', type: 'horse', value: { body: 0x333333, dark: 0x111111, white: 0x222222 }, cost: 150 },
             { id: 'horse_white', name: 'White Horse', type: 'horse', value: { body: 0xeeeeee, dark: 0xaaaaaa, white: 0xdddddd }, cost: 150 },
             { id: 'horse_chestnut', name: 'Chestnut Horse', type: 'horse', value: { body: 0x8b4513, dark: 0x3e1f04, white: 0xffffff }, cost: 150 },
@@ -592,9 +583,27 @@
                 
                 let isDisabled = money < item.cost;
                 let btnText = 'Buy';
-                if (item.type === 'upgrade' && barnFenceSize >= 25.0) {
+                // Increased max size to 35.0, allowing exactly 5 expansions (15, 20, 25, 30, 35)
+                if (item.type === 'upgrade' && barnFenceSize >= 35.0) {
                     isDisabled = true;
                     btnText = 'Maxed Out';
+                }
+                if (item.id === 'trough_size' && troughSizeMultiplier > 1.0) {
+                    isDisabled = true;
+                    btnText = 'Purchased';
+                }
+                if (item.id === 'trough_add_1' && troughs.length >= 2) {
+                    isDisabled = true;
+                    btnText = 'Purchased';
+                }
+                if (item.id === 'trough_add_2') {
+                    if (troughs.length < 2) {
+                        isDisabled = true;
+                        btnText = 'Locked';
+                    } else if (troughs.length >= 3) {
+                        isDisabled = true;
+                        btnText = 'Purchased';
+                    }
                 }
 
                 el.innerHTML = `
@@ -611,7 +620,7 @@
             if (!item || money < item.cost) return;
 
             if (item.type === 'upgrade') {
-                if (barnFenceSize >= 25.0) return;
+                if (barnFenceSize >= 35.0) return;
                 barnFenceSize += 5.0;
                 
                 while(barnFenceGroup.children.length > 0){ 
@@ -620,10 +629,19 @@
                 fenceGate = null; 
                 createFence(barnFenceSize, barnFenceGroup, true);
                 
-                if (troughGroupRef) {
-                    troughGroupRef.position.z = barnFenceSize - 0.8;
-                    troughPosition.z = barnFenceSize - 2.3; // Preserve the 1.5 unit head reach offset
-                }
+                if (barnModel) barnModel.position.x -= 5.0;
+
+                treesAndRocks.forEach(obj => {
+                    if (obj.position.x > 5) obj.position.x += 5;
+                    if (obj.position.x < -5) obj.position.x -= 5;
+                    if (obj.position.z > 5) obj.position.z += 5;
+                    if (obj.position.z < -5) obj.position.z -= 5;
+                });
+                
+                troughs.forEach(t => {
+                    t.mesh.position.z = barnFenceSize - 0.8;
+                    t.position.z = barnFenceSize - 2.3;
+                });
             } 
             else if (item.type === 'barn') {
                 matBarnWall.color.setHex(item.value);
@@ -635,8 +653,21 @@
                 matJumpPole.color.setHex(item.value);
             } 
             else if (item.type === 'horse') {
-                // Spawns a brand new autonomous horse to the herd!
                 addHorse(item.value.body, item.value.dark, item.value.white);
+            }
+            else if (item.type === 'add_trough') {
+                let t = createTrough(item.value.x, barnFenceSize - 0.8, 0, envBarn);
+                troughs.push(t);
+            }
+            else if (item.type === 'upgrade_trough') {
+                troughSizeMultiplier = 1.5;
+                troughCapacity = 2.0;
+                troughs.forEach(t => {
+                    t.mesh.scale.set(1.5, 1.0, 1.5);
+                    t.capacity = 2.0;
+                    t.level = 2.0;
+                    if (t.hayGroup) t.hayGroup.scale.y = 1.0;
+                });
             }
 
             money -= item.cost;
@@ -704,6 +735,7 @@
                 aiTargetAngle: 0,
                 horseHunger: Math.random() * 40, // Stagger hunger
                 aiTargetGrass: null,
+                targetTrough: null,
                 animationMode: 'idle',
                 previousMode: 'idle',
                 transitionWeight: 1.0,
@@ -783,8 +815,11 @@
             // Build Barn Environment
             createScenery(envBarn);
             createFence(barnFenceSize, barnFenceGroup, true);
-            createTrough(3.0, barnFenceSize - 0.8, 0, envBarn);
-            createBarn(-20, 0, Math.PI / 2, 1.1, envBarn);
+            
+            let initialTrough = createTrough(3.0, barnFenceSize - 0.8, 0, envBarn);
+            troughs.push(initialTrough);
+            
+            barnModel = createBarn(-20, 0, Math.PI / 2, 1.1, envBarn);
 
             // Build Jumping Course Environment (Bigger paddock & Jumps arranged in oval shape)
             createFence(22.0, envCourse, false); // Larger arena (44x44 meters)
@@ -1055,6 +1090,7 @@
                 treeGroup.scale.set(scale, scale, scale);
                 treeGroup.rotation.y = Math.random() * Math.PI;
                 parentGroup.add(treeGroup);
+                treesAndRocks.push(treeGroup);
             };
 
             const createRock = (x, z, scale) => {
@@ -1066,6 +1102,7 @@
                 rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
                 rock.castShadow = true; rock.receiveShadow = true;
                 parentGroup.add(rock);
+                treesAndRocks.push(rock);
             };
 
             const createGrassTuft = (x, z) => {
@@ -1111,6 +1148,7 @@
 
                 flower.position.set(x, 0, z);
                 parentGroup.add(flower);
+                treesAndRocks.push(flower);
             };
 
             createTree(-12, -12, 1.5);
@@ -1129,9 +1167,9 @@
             createRock(-11, -11, 0.5);
             createRock(15, -2, 0.4);
 
-            for (let i = 0; i < 80; i++) {
-                const gx = (Math.random() - 0.5) * 40;
-                const gz = (Math.random() - 0.5) * 40;
+            for (let i = 0; i < 200; i++) {
+                const gx = (Math.random() - 0.5) * 80;
+                const gz = (Math.random() - 0.5) * 80;
                 if (Math.abs(gx) < 3 && Math.abs(gz) < 3) continue;
                 if (gx < -11 && Math.abs(gz) < 6) continue;
                 
@@ -1139,9 +1177,9 @@
                 grassTufts.push({ mesh: tuftMesh, position: new THREE.Vector3(gx, BASE_Y, gz), growth: 1.0 });
             }
 
-            for (let i = 0; i < 30; i++) {
-                const fx = (Math.random() - 0.5) * 35;
-                const fz = (Math.random() - 0.5) * 35;
+            for (let i = 0; i < 60; i++) {
+                const fx = (Math.random() - 0.5) * 70;
+                const fz = (Math.random() - 0.5) * 70;
                 if (Math.abs(fx) < 3 && Math.abs(fz) < 3) continue;
                 if (fx < -11 && Math.abs(fz) < 6) continue;
                 createFlower(fx, fz);
@@ -1254,6 +1292,8 @@
             barnGroup.rotation.y = rotationY;
             barnGroup.scale.set(scale, scale, scale);
             parentGroup.add(barnGroup);
+            
+            return barnGroup;
         }
 
         function createFence(halfSize, parentGroup, hasGate) {
@@ -1331,8 +1371,6 @@
 
         function createTrough(x, z, rotationY, parentGroup) {
             const troughGroup = new THREE.Group();
-            troughGroupRef = troughGroup; 
-
             const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, flatShading: true, roughness: 0.9 }); 
             const hayMat = new THREE.MeshStandardMaterial({ color: 0xdaa520, flatShading: true, roughness: 1.0 }); 
             const markTroughInteractable = (mesh) => { mesh.userData.interactable = 'trough'; };
@@ -1376,7 +1414,16 @@
 
             troughGroup.add(hayGroup);
             troughGroup.position.set(x, 0, z); troughGroup.rotation.y = rotationY;
+            troughGroup.scale.set(troughSizeMultiplier, 1.0, troughSizeMultiplier);
             parentGroup.add(troughGroup);
+            
+            return {
+                mesh: troughGroup,
+                hayGroup: hayGroup,
+                position: new THREE.Vector3(x, BASE_Y, z - 1.5),
+                capacity: troughCapacity,
+                level: troughCapacity
+            };
         }
 
         function onPointerDown(event) {
@@ -1398,8 +1445,10 @@
                     gateOpen = !gateOpen;
                     break;
                 } else if (interactable === 'trough') {
-                    hayLevel = 1.0;
-                    if (hayGroup) hayGroup.scale.y = 1.0;
+                    troughs.forEach(t => {
+                        t.level = t.capacity;
+                        if (t.hayGroup) t.hayGroup.scale.y = 1.0;
+                    });
                     break;
                 }
             }
@@ -1862,13 +1911,12 @@
                             h.horseHunger -= dt * 15.0; 
                             if (h.horseHunger < 0) h.horseHunger = 0;
                             
-                            // Let anyone eat from the trough
-                            if (h.aiTarget.equals(troughPosition) && hayGroup) {
-                                hayLevel -= dt * 0.05; 
-                                if (hayLevel < 0) hayLevel = 0;
-                                hayGroup.scale.y = Math.max(0.01, hayLevel);
+                            if (h.targetTrough && h.aiTarget.equals(h.targetTrough.position)) {
+                                h.targetTrough.level -= dt * 0.05; 
+                                if (h.targetTrough.level < 0) h.targetTrough.level = 0;
+                                h.targetTrough.hayGroup.scale.y = Math.max(0.01, h.targetTrough.level / h.targetTrough.capacity);
                                 
-                                if (hayLevel === 0 && h.horseHunger > 0) {
+                                if (h.targetTrough.level === 0 && h.horseHunger > 0) {
                                     h.aiTimer = 0; 
                                 }
                             }
@@ -1879,17 +1927,22 @@
                                 if (h.animationMode !== 'sleep') {
                                     h.changeAnimation('sleep');
                                 }
+                                h.targetTrough = null;
                                 h.aiTimer = 5.0; 
                             } else if (h.horseHunger > 75) {
-                                const troughHasFood = hayLevel > 0.1;
+                                let availableTroughs = troughs.filter(t => t.level > 0.1);
+                                const troughHasFood = availableTroughs.length > 0;
                                 const validGrass = grassTufts.filter(g => Math.abs(g.position.x) < 7 && Math.abs(g.position.z) < 7 && g.growth > 0.8);
                                 
                                 let choseFood = false;
                                 h.aiTargetGrass = null;
+                                h.targetTrough = null;
 
                                 if (troughHasFood && validGrass.length > 0) {
-                                    if (Math.random() < 0.8) { // 80% chance to prefer the trough
-                                        h.aiTarget.copy(troughPosition); choseFood = true;
+                                    if (Math.random() < 0.8) { 
+                                        h.targetTrough = availableTroughs[Math.floor(Math.random() * availableTroughs.length)];
+                                        h.aiTarget.copy(h.targetTrough.position); 
+                                        choseFood = true;
                                     } else {
                                         h.aiTargetGrass = validGrass[Math.floor(Math.random() * validGrass.length)];
                                         let dir = new THREE.Vector3().subVectors(h.mesh.position, h.aiTargetGrass.position);
@@ -1898,7 +1951,9 @@
                                         choseFood = true;
                                     }
                                 } else if (troughHasFood) {
-                                    h.aiTarget.copy(troughPosition); choseFood = true;
+                                    h.targetTrough = availableTroughs[Math.floor(Math.random() * availableTroughs.length)];
+                                    h.aiTarget.copy(h.targetTrough.position); 
+                                    choseFood = true;
                                 } else if (validGrass.length > 0) {
                                     h.aiTargetGrass = validGrass[Math.floor(Math.random() * validGrass.length)];
                                     let dir = new THREE.Vector3().subVectors(h.mesh.position, h.aiTargetGrass.position);
@@ -1912,7 +1967,7 @@
                                     const dz = h.aiTarget.z - h.mesh.position.z;
                                     h.aiTargetAngle = Math.atan2(-dz, dx);
                                     h.aiState = 'turning'; h.changeAnimation('walk');
-                                    h.aiTimer = 15.0; // Failsafe timeout to prevent infinite walking
+                                    h.aiTimer = 15.0; 
                                 } else {
                                     const wanderLimit = (barnFenceSize - 2) * 2;
                                     const rx = (Math.random() - 0.5) * wanderLimit; 
@@ -1921,10 +1976,11 @@
                                     const dx = h.aiTarget.x - h.mesh.position.x; const dz = h.aiTarget.z - h.mesh.position.z;
                                     h.aiTargetAngle = Math.atan2(-dz, dx);
                                     h.aiState = 'turning'; h.changeAnimation('walk');
-                                    h.aiTimer = 15.0; // Failsafe timeout to prevent infinite walking
+                                    h.aiTimer = 15.0; 
                                 }
 
                             } else {
+                                h.targetTrough = null;
                                 const wanderLimit = (barnFenceSize - 2) * 2;
                                 const rx = (Math.random() - 0.5) * wanderLimit; 
                                 const rz = (Math.random() - 0.5) * wanderLimit;
@@ -1932,7 +1988,7 @@
                                 const dx = h.aiTarget.x - h.mesh.position.x; const dz = h.aiTarget.z - h.mesh.position.z;
                                 h.aiTargetAngle = Math.atan2(-dz, dx);
                                 h.aiState = 'turning'; h.changeAnimation('walk');
-                                h.aiTimer = 15.0; // Failsafe timeout to prevent infinite walking
+                                h.aiTimer = 15.0; 
                             }
                         }
                     } else if (h.aiState === 'turning') {
@@ -1963,7 +2019,7 @@
                                 h.changeAnimation('sleep'); h.aiTimer = 10.0;
                             // Only trigger eating if they actually successfully reached the food target!
                             } else if (h.horseHunger > 75 && reachedTarget) {
-                                if (h.aiTarget.equals(troughPosition)) {
+                                if (h.targetTrough && h.aiTarget.equals(h.targetTrough.position)) {
                                     h.mesh.rotation.y = -Math.PI / 2; 
                                 } else if (h.aiTargetGrass) {
                                     h.aiTargetGrass.growth = 0.01; h.aiTargetGrass.mesh.scale.set(0.01, 0.01, 0.01); h.aiTargetGrass = null;
@@ -2021,6 +2077,11 @@
             for (let i = 0; i < horses.length; i++) {
                 const h = horses[i];
                 
+                // Snap to ground if not actively jumping (prevents sinking/floating bug)
+                if (!h.isJumping) {
+                    h.mesh.position.y = BASE_Y;
+                }
+                
                 // 1. Swarm Separation (Boids)
                 for (let j = i + 1; j < horses.length; j++) {
                     const h2 = horses[j];
@@ -2028,7 +2089,9 @@
                     const minSep = 2.0; 
                     if (distSq < minSep * minSep && distSq > 0.0001) {
                         const dist = Math.sqrt(distSq);
-                        const push = new THREE.Vector3().subVectors(h.mesh.position, h2.mesh.position).normalize();
+                        const push = new THREE.Vector3().subVectors(h.mesh.position, h2.mesh.position);
+                        push.y = 0; // Prevent horses from pushing each other up into the air or down into the ground
+                        push.normalize();
                         const pushForce = (minSep - dist) * 0.5; 
                         h.mesh.position.addScaledVector(push, pushForce);
                         h2.mesh.position.addScaledVector(push, -pushForce);
@@ -2094,6 +2157,12 @@
             }
 
             controls.update();
+            
+            // Hard clamp camera so it can never go below the ground plane
+            if (camera.position.y < 0.2) {
+                camera.position.y = 0.2;
+            }
+            
             renderer.render(scene, camera);
         }
     </script>
